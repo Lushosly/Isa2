@@ -1,4 +1,4 @@
-const APP_VERSION = "1.9.1";
+const APP_VERSION = "1.9.2";
 const CHILD_NAME = "Isabelle";
 
 const lessons = [
@@ -16,6 +16,8 @@ const lessons = [
 const STORAGE_KEY = "aventura-ingles-progress-v1";
 let canvasObserver;
 let activeRecognition;
+let recognitionTimer;
+const RECOGNITION_TIMEOUT_MS = 15000;
 let state = {
   mode: "learn",
   lessonIndex: 0,
@@ -136,6 +138,55 @@ function writtenAnswerIsCorrect(value, index) {
   if (index === 0) accepted.push("my name is isabel");
   if (index === 4) accepted.push("i am six years old");
   return accepted.some((answer) => supplied === normalize(answer));
+}
+
+function clearRecognitionTimer() {
+  if (!recognitionTimer) return;
+  clearTimeout(recognitionTimer);
+  recognitionTimer = undefined;
+}
+
+function releaseRecognition(recognition) {
+  if (activeRecognition !== recognition) return false;
+  activeRecognition = null;
+  clearRecognitionTimer();
+  return true;
+}
+
+function cancelActiveRecognition() {
+  const recognition = activeRecognition;
+  activeRecognition = null;
+  clearRecognitionTimer();
+  if (!recognition) return;
+  try { recognition.abort(); } catch { /* Safari may already have closed the microphone. */ }
+}
+
+function armRecognitionTimeout(recognition, channel) {
+  clearRecognitionTimer();
+  recognitionTimer = setTimeout(() => {
+    if (!releaseRecognition(recognition)) return;
+    try { recognition.abort(); } catch { /* The timeout still restores the interface. */ }
+    if (channel === "exam") {
+      state.examStatus = "idle";
+      state.examMessage = "Se terminó el tiempo de escucha. Toca el micrófono para intentarlo otra vez.";
+    } else {
+      state.speechStatus = "idle";
+      state.speechMessage = "Se terminó el tiempo de escucha. Toca el micrófono para intentarlo otra vez.";
+    }
+    render();
+  }, RECOGNITION_TIMEOUT_MS);
+}
+
+function stopListening(channel) {
+  cancelActiveRecognition();
+  if (channel === "exam") {
+    state.examStatus = "idle";
+    state.examMessage = "Escucha detenida. Toca el micrófono cuando estés lista.";
+  } else {
+    state.speechStatus = "idle";
+    state.speechMessage = "Escucha detenida. Toca el micrófono cuando estés lista.";
+  }
+  render();
 }
 
 function voiceFor(language) {
@@ -361,7 +412,7 @@ function modeContent(lesson) {
     ${state.quizStyle === "speech" ? `
       <section class="speaking-challenge primary-speech" aria-live="polite">
         <div><span aria-hidden="true">🎤</span><div><h3>Di esta frase en inglés</h3><p>${escapeHtml(lesson.spanish)}</p></div></div>
-        <div class="speech-actions"><button class="secondary" data-action="hear-en">🔊 Escuchar una pista</button><button class="mic-button ${state.speechStatus === "listening" ? "listening" : ""}" data-action="speak-challenge" ${state.speechStatus === "listening" ? "disabled" : ""}>${state.speechStatus === "listening" ? "🎙️ Escuchando…" : "🎤 Hablar ahora"}</button></div>
+        <div class="speech-actions"><button class="secondary" data-action="hear-en">🔊 Escuchar una pista</button><button class="mic-button ${state.speechStatus === "listening" ? "listening" : ""}" data-action="${state.speechStatus === "listening" ? "stop-speech" : "speak-challenge"}">${state.speechStatus === "listening" ? "⏹ Detener escucha" : "🎤 Hablar ahora"}</button></div>
         ${state.speechTranscript ? `<p class="heard-text"><strong>Escuché:</strong> “${escapeHtml(state.speechTranscript)}”</p>` : ""}
         ${state.speechMessage ? `<p class="speech-message">${escapeHtml(state.speechMessage)}</p>` : ""}
         <small>El reto acepta pequeñas diferencias de pronunciación. Comprueba las palabras entendidas, no califica el acento profesionalmente.</small>
@@ -394,7 +445,7 @@ function examHtml() {
       <div class="exam-progress-copy"><span>${state.examMode === "writing" ? "✍️ EXAMEN DE ESCRITURA" : "🎤 EXAMEN DE VOZ"}</span><strong>Pregunta ${state.examIndex + 1} de ${total}</strong></div>
       <div class="exam-progress"><span style="width:${progress}%"></span></div>
       <div class="exam-prompt"><span aria-hidden="true">${lesson.emoji}</span><p>${escapeHtml(lesson.label)}</p><h2 id="exam-question-title">${escapeHtml(lesson.spanish)}</h2></div>
-      ${state.examMode === "writing" ? `<label class="exam-answer-label" for="exam-answer">Escribe la frase completa en inglés:</label><textarea id="exam-answer" class="exam-answer" placeholder="Escribe tu respuesta…" autocapitalize="sentences" spellcheck="false">${escapeHtml(state.examInput)}</textarea><button class="exam-primary" data-action="exam-submit-writing" ${state.examInput.trim() ? "" : "disabled"}>Guardar y continuar <span aria-hidden="true">→</span></button>` : `<div class="exam-speech-box"><p>Di la frase completa en inglés.</p><button class="exam-mic ${state.examStatus === "listening" ? "listening" : ""}" data-action="exam-speak" ${state.examStatus === "listening" ? "disabled" : ""}>${state.examStatus === "listening" ? "🎙️ Escuchando…" : "🎤 Hablar ahora"}</button>${state.examMessage ? `<small>${escapeHtml(state.examMessage)}</small>` : ""}</div>`}
+      ${state.examMode === "writing" ? `<label class="exam-answer-label" for="exam-answer">Escribe la frase completa en inglés:</label><textarea id="exam-answer" class="exam-answer" placeholder="Escribe tu respuesta…" autocapitalize="sentences" spellcheck="false">${escapeHtml(state.examInput)}</textarea><button class="exam-primary" data-action="exam-submit-writing" ${state.examInput.trim() ? "" : "disabled"}>Guardar y continuar <span aria-hidden="true">→</span></button>` : `<div class="exam-speech-box"><p>Di la frase completa en inglés.</p><button class="exam-mic ${state.examStatus === "listening" ? "listening" : ""}" data-action="${state.examStatus === "listening" ? "stop-exam-speech" : "exam-speak"}">${state.examStatus === "listening" ? "⏹ Detener escucha" : "🎤 Hablar ahora"}</button>${state.examMessage ? `<small>${escapeHtml(state.examMessage)}</small>` : ""}</div>`}
       <p class="exam-secret"><span aria-hidden="true">🤫</span> No mostraremos si está correcta hasta terminar.</p>
     </section></div>`;
   }
@@ -415,7 +466,7 @@ function examHtml() {
 }
 
 function prepareExam(stage = "intro") {
-  if (activeRecognition) { activeRecognition.abort(); activeRecognition = null; }
+  cancelActiveRecognition();
   state.examStage = stage;
   state.examIndex = 0;
   state.examAnswers = [];
@@ -463,7 +514,7 @@ function finishExam(answers) {
 
 function closeExam() {
   if (state.examStage === "questions" && !window.confirm("¿Quieres salir? Las respuestas de este intento no se guardarán.")) return;
-  if (activeRecognition) { activeRecognition.abort(); activeRecognition = null; }
+  cancelActiveRecognition();
   state.examOpen = false;
   prepareExam("intro");
   render();
@@ -485,7 +536,7 @@ function practiceMissed() {
 function startExamSpeech() {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) { state.examMessage = "Abre la página en Safari para usar el examen de voz."; render(); return; }
-  if (activeRecognition) activeRecognition.abort();
+  cancelActiveRecognition();
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   const questionIndex = state.examIndex;
   const recognition = new Recognition();
@@ -495,30 +546,39 @@ function startExamSpeech() {
   recognition.interimResults = false;
   recognition.maxAlternatives = 5;
   state.examStatus = "listening";
-  state.examMessage = "Habla ahora, despacio y cerca del iPad.";
+  state.examMessage = "Habla ahora, despacio y cerca del iPad. La escucha se detiene sola.";
   render();
   recognition.onresult = (event) => {
-    if (activeRecognition !== recognition) return;
+    if (!releaseRecognition(recognition)) return;
     const alternatives = Array.from(event.results[event.results.length - 1]).map((item) => item.transcript);
-    activeRecognition = null;
     state.examStatus = "idle";
     const correct = phraseWasUnderstood(alternatives, lessons[questionIndex]);
     recordExamAnswer(alternatives[0] || "", correct);
   };
-  recognition.onerror = (event) => {
-    if (activeRecognition !== recognition || event.error === "aborted") return;
-    activeRecognition = null;
+  recognition.onnomatch = () => {
+    if (!releaseRecognition(recognition)) return;
     state.examStatus = "idle";
+    state.examMessage = "No pude reconocer la frase. Toca el micrófono para intentarlo otra vez.";
+    render();
+  };
+  recognition.onerror = (event) => {
+    if (activeRecognition !== recognition) return;
+    releaseRecognition(recognition);
+    state.examStatus = "idle";
+    if (event.error === "aborted") { state.examMessage = "Escucha detenida. Toca el micrófono cuando estés lista."; render(); return; }
     const messages = { "not-allowed": "Permite el micrófono en Safari para continuar.", "service-not-allowed": "Activa Siri en los ajustes del iPad.", "no-speech": "No escuché una frase. Inténtalo otra vez.", network: "No pude usar el micrófono ahora. Revisa la conexión." };
     state.examMessage = messages[event.error] || "No pude escuchar. Inténtalo otra vez.";
     render();
   };
-  recognition.onend = () => {
+  recognition.onspeechend = () => {
     if (activeRecognition !== recognition) return;
-    activeRecognition = null;
+    try { recognition.stop(); } catch { /* Wait for onresult, onerror, or the safety timeout. */ }
+  };
+  recognition.onend = () => {
+    if (!releaseRecognition(recognition)) return;
     if (state.examStatus === "listening") { state.examStatus = "idle"; state.examMessage = "No escuché la frase completa. Inténtalo otra vez."; render(); }
   };
-  try { recognition.start(); } catch { activeRecognition = null; state.examStatus = "idle"; state.examMessage = "El micrófono está ocupado. Inténtalo otra vez."; render(); }
+  try { recognition.start(); armRecognitionTimeout(recognition, "exam"); } catch { releaseRecognition(recognition); state.examStatus = "idle"; state.examMessage = "El micrófono está ocupado. Inténtalo otra vez."; render(); }
 }
 
 function render() {
@@ -575,10 +635,7 @@ function render() {
 }
 
 function resetLessonState() {
-  if (activeRecognition) {
-    activeRecognition.abort();
-    activeRecognition = null;
-  }
+  cancelActiveRecognition();
   state.answer = "";
   state.feedback = "idle";
   state.showSound = false;
@@ -593,6 +650,7 @@ function resetLessonState() {
 function resetAllProgress() {
   const confirmed = window.confirm("¿Quieres borrar todas las estrellas, logros, exámenes y progreso de prueba?");
   if (!confirmed) return;
+  cancelActiveRecognition();
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   localStorage.removeItem(STORAGE_KEY);
   state = {
@@ -650,7 +708,7 @@ function startSpeechChallenge() {
     return;
   }
 
-  if (activeRecognition) activeRecognition.abort();
+  cancelActiveRecognition();
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   const recognition = new Recognition();
   activeRecognition = recognition;
@@ -660,15 +718,14 @@ function startSpeechChallenge() {
   recognition.maxAlternatives = 5;
   state.speechStatus = "listening";
   state.speechTranscript = "";
-  state.speechMessage = "Habla ahora, despacio y cerca del iPad.";
+  state.speechMessage = "Habla ahora, despacio y cerca del iPad. La escucha se detiene sola.";
   render();
 
   recognition.onresult = (event) => {
-    if (activeRecognition !== recognition) return;
+    if (!releaseRecognition(recognition)) return;
     const alternatives = Array.from(event.results[event.results.length - 1]).map((item) => item.transcript);
     state.speechTranscript = alternatives[0] || "";
     state.speechStatus = "idle";
-    activeRecognition = null;
     if (phraseWasUnderstood(alternatives, lessons[state.lessonIndex])) {
       state.speechMessage = "¡El iPad entendió la frase!";
       awardSuccess("I understood you", "Te entendí muy bien", "speech-quiz");
@@ -679,10 +736,17 @@ function startSpeechChallenge() {
       render();
     }
   };
-  recognition.onerror = (event) => {
-    if (activeRecognition !== recognition || event.error === "aborted") return;
-    activeRecognition = null;
+  recognition.onnomatch = () => {
+    if (!releaseRecognition(recognition)) return;
     state.speechStatus = "idle";
+    state.speechMessage = "No pude reconocer la frase. Toca el micrófono para intentarlo otra vez.";
+    render();
+  };
+  recognition.onerror = (event) => {
+    if (activeRecognition !== recognition) return;
+    releaseRecognition(recognition);
+    state.speechStatus = "idle";
+    if (event.error === "aborted") { state.speechMessage = "Escucha detenida. Toca el micrófono cuando estés lista."; render(); return; }
     const messages = {
       "not-allowed": "Necesito permiso para usar el micrófono. Permítelo en Safari y vuelve a intentarlo.",
       "service-not-allowed": "Activa Siri en los ajustes del iPad para poder practicar con el micrófono.",
@@ -692,10 +756,13 @@ function startSpeechChallenge() {
     state.speechMessage = messages[event.error] || "No pude escuchar esta vez. Inténtalo otra vez.";
     render();
   };
-  recognition.onend = () => {
+  recognition.onspeechend = () => {
     if (activeRecognition !== recognition) return;
+    try { recognition.stop(); } catch { /* Wait for onresult, onerror, or the safety timeout. */ }
+  };
+  recognition.onend = () => {
+    if (!releaseRecognition(recognition)) return;
     if (state.speechStatus === "listening") {
-      activeRecognition = null;
       state.speechStatus = "idle";
       state.speechMessage = "No escuché la frase completa. Toca el micrófono para intentarlo otra vez.";
       render();
@@ -704,8 +771,9 @@ function startSpeechChallenge() {
 
   try {
     recognition.start();
+    armRecognitionTimeout(recognition, "challenge");
   } catch {
-    activeRecognition = null;
+    releaseRecognition(recognition);
     state.speechStatus = "idle";
     state.speechMessage = "El micrófono está ocupado. Espera un momento e inténtalo otra vez.";
     render();
@@ -728,7 +796,7 @@ function bindEvents() {
     if (action === "close-modal") { if (event.target === button || button.tagName === "BUTTON") { state.achievementsOpen = false; render(); } }
     if (action === "close-celebration") closeCelebration();
     if (action === "mode") { state.mode = button.dataset.value; resetLessonState(); if (state.mode === "quiz") state.quizOptions = makeQuizOptions(state.lessonIndex); render(); }
-    if (action === "hear-en") { speak(lesson.english, "en-US"); markPracticed(state.lessonIndex); checkNewAchievements(); save(); render(); }
+    if (action === "hear-en") { if (state.speechStatus === "listening") { cancelActiveRecognition(); state.speechStatus = "idle"; } speak(lesson.english, "en-US"); markPracticed(state.lessonIndex); checkNewAchievements(); save(); render(); }
     if (action === "hear-es") speak(lesson.spanish, "es-MX");
     if (action === "sound") { state.showSound = !state.showSound; render(); }
     if (action === "prev") goToLesson(state.lessonIndex - 1);
@@ -740,15 +808,17 @@ function bindEvents() {
     if (action === "begin-exam") { prepareExam("questions"); render(); }
     if (action === "exam-submit-writing" && state.examInput.trim()) recordExamAnswer(state.examInput, writtenAnswerIsCorrect(state.examInput, state.examIndex));
     if (action === "exam-speak") startExamSpeech();
+    if (action === "stop-exam-speech") stopListening("exam");
     if (action === "retry-exam") { prepareExam("questions"); render(); }
     if (action === "practice-missed") practiceMissed();
     if (action === "finish-exam") { state.examOpen = false; prepareExam("intro"); render(); }
     if (action === "reset") resetAllProgress();
     if (action === "writing-style") { state.writingStyle = button.dataset.value; state.answer = ""; state.feedback = "idle"; state.writingFullscreen = false; render(); }
-    if (action === "quiz-style") { state.quizStyle = button.dataset.value; state.feedback = "idle"; state.speechStatus = "idle"; state.speechTranscript = ""; state.speechMessage = ""; render(); }
+    if (action === "quiz-style") { cancelActiveRecognition(); state.quizStyle = button.dataset.value; state.feedback = "idle"; state.speechStatus = "idle"; state.speechTranscript = ""; state.speechMessage = ""; render(); }
     if (action === "toggle-writing-fullscreen") toggleWritingFullscreen(button);
     if (action === "clear-writing") { state.answer = ""; state.feedback = "idle"; render(); }
     if (action === "speak-challenge") startSpeechChallenge();
+    if (action === "stop-speech") stopListening("challenge");
     if (action === "hint") { state.answer = lesson.answer.slice(0, Math.max(2, Math.ceil(lesson.answer.length * 0.35))); render(); }
     if (action === "check") {
       const accepted = writtenAnswerIsCorrect(state.answer, state.lessonIndex);
