@@ -1,4 +1,4 @@
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.7.0";
 const CHILD_NAME = "Isabelle";
 
 const lessons = [
@@ -35,10 +35,20 @@ let state = {
   writingFullscreen: false,
   familyMissions: [],
   missionOpen: false,
+  examOpen: false,
+  examMode: "writing",
+  examStage: "intro",
+  examIndex: 0,
+  examAnswers: [],
+  examInput: "",
+  examStatus: "idle",
+  examMessage: "",
+  examResult: null,
+  examBest: { writing: 0, speech: 0 },
   speechStatus: "idle",
   speechTranscript: "",
   speechMessage: "",
-  stats: { typingWins: 0, handwritingWins: 0, speechWins: 0, quizWins: 0 },
+  stats: { typingWins: 0, handwritingWins: 0, speechWins: 0, quizWins: 0, examsCompleted: 0, perfectExams: 0 },
 };
 
 try {
@@ -54,6 +64,12 @@ try {
       handwritingWins: Number.isFinite(stored.stats?.handwritingWins) ? stored.stats.handwritingWins : 0,
       speechWins: Number.isFinite(stored.stats?.speechWins) ? stored.stats.speechWins : 0,
       quizWins: Number.isFinite(stored.stats?.quizWins) ? stored.stats.quizWins : 0,
+      examsCompleted: Number.isFinite(stored.stats?.examsCompleted) ? stored.stats.examsCompleted : 0,
+      perfectExams: Number.isFinite(stored.stats?.perfectExams) ? stored.stats.perfectExams : 0,
+    };
+    state.examBest = {
+      writing: Number.isFinite(stored.examBest?.writing) ? stored.examBest.writing : 0,
+      speech: Number.isFinite(stored.examBest?.speech) ? stored.examBest.speech : 0,
     };
   }
 } catch {
@@ -68,6 +84,7 @@ function save() {
     familyMissions: state.familyMissions,
     unlockedAchievements: state.unlockedAchievements,
     stats: state.stats,
+    examBest: state.examBest,
   }));
 }
 
@@ -97,9 +114,10 @@ function similarity(left, right) {
 }
 
 function phraseWasUnderstood(transcripts, lesson) {
+  const lessonIndex = lessons.indexOf(lesson);
   const expected = [lesson.answer];
-  if (state.lessonIndex === 0) expected.push("my name is isabel");
-  if (state.lessonIndex === 4) expected.push("i am six years old");
+  if (lessonIndex === 0) expected.push("my name is isabel");
+  if (lessonIndex === 4) expected.push("i am six years old");
   return transcripts.some((spoken) => expected.some((answer) => {
     const normalizedSpoken = normalize(spoken).replace(/\bfavourite\b/g, "favorite");
     const normalizedAnswer = normalize(answer).replace(/\bfavourite\b/g, "favorite");
@@ -109,6 +127,14 @@ function phraseWasUnderstood(transcripts, lesson) {
     const wordCoverage = understoodWords.length / Math.max(expectedWords.length, 1);
     return similarity(normalizedSpoken, normalizedAnswer) >= 0.68 || wordCoverage >= 0.75;
   }));
+}
+
+function writtenAnswerIsCorrect(value, index) {
+  const supplied = normalize(value).replace(/\bfavourite\b/g, "favorite");
+  const accepted = [lessons[index].answer];
+  if (index === 0) accepted.push("my name is isabel");
+  if (index === 4) accepted.push("i am six years old");
+  return accepted.some((answer) => supplied === normalize(answer));
 }
 
 function voiceFor(language) {
@@ -225,17 +251,19 @@ function achievements() {
     { id: "magic-pencil", icon: "✏️", name: "Lápiz mágico", detail: "Escribiste una frase a mano", earned: state.stats.handwritingWins >= 1 },
     { id: "quiz-champion", icon: "⚡", name: "Campeona de retos", detail: "Ganaste 3 retos", earned: state.stats.quizWins >= 3 },
     { id: "super-ear", icon: "🎧", name: "Súper oído", detail: "Practicaste 3 frases", earned: state.completed.length >= 3 },
-    { id: "family-hero", icon: "💜", name: "Heroína de la familia", detail: "Compartiste una frase", earned: state.familyMissions.length >= 1 },
+    { id: "exam-brave", icon: "📝", name: "Valiente del examen", detail: "Terminaste tu primer examen", earned: state.stats.examsCompleted >= 1 },
     { id: "smart-girl", icon: "🧠", name: "Chica súper inteligente", detail: "Conseguiste 7 estrellas", earned: state.stars >= 7 },
     { id: "unstoppable", icon: "🌈", name: "Isabelle imparable", detail: "Conseguiste 12 estrellas", earned: state.stars >= 12 },
     { id: "explorer", icon: "🏆", name: "English Explorer", detail: "Practicaste todas las frases", earned: state.completed.length === lessons.length },
+    { id: "perfect-exam", icon: "👑", name: "Maestra del inglés", detail: "¡Sacaste 9 de 9 en el examen!", earned: state.stats.perfectExams >= 1 },
   ];
 }
 
-function checkNewAchievements() {
+function checkNewAchievements(showPopup = true) {
   const newlyEarned = achievements().filter((item) => item.earned && !state.unlockedAchievements.includes(item.id));
   if (!newlyEarned.length) return;
   state.unlockedAchievements = [...state.unlockedAchievements, ...newlyEarned.map((item) => item.id)];
+  if (!showPopup) return;
   state.celebrationQueue = [...state.celebrationQueue, ...newlyEarned];
   if (!state.celebration) state.celebration = state.celebrationQueue.shift();
 }
@@ -321,6 +349,155 @@ function modeContent(lesson) {
   </div>`;
 }
 
+function examHtml() {
+  if (!state.examOpen) return "";
+  const total = lessons.length;
+
+  if (state.examStage === "intro") return `<div class="exam-overlay"><section class="exam-shell exam-intro" role="dialog" aria-modal="true" aria-labelledby="exam-title">
+    <button class="exam-close" data-action="close-exam" aria-label="Cerrar examen">×</button>
+    <div class="exam-title-icon" aria-hidden="true">🎓</div><p class="exam-kicker">MISIÓN EXTRA</p><h2 id="exam-title">El gran examen de Isabelle</h2>
+    <p class="exam-lead">Nueve preguntas. Las respuestas se revisan solamente al final.</p>
+    <div class="exam-tabs" role="group" aria-label="Tipo de examen"><button class="${state.examMode === "writing" ? "active" : ""}" data-action="exam-mode" data-value="writing">✍️ Escritura</button><button class="${state.examMode === "speech" ? "active" : ""}" data-action="exam-mode" data-value="speech">🎤 Hablar</button></div>
+    <div class="exam-best"><span>Mejor escritura <strong>${state.examBest.writing}/${total}</strong></span><span>Mejor voz <strong>${state.examBest.speech}/${total}</strong></span></div>
+    <ol class="exam-rules"><li><span>1</span>Lee la frase en español.</li><li><span>2</span>${state.examMode === "writing" ? "Escríbela" : "Dila"} en inglés.</li><li><span>3</span>Descubre tu puntuación al final.</li></ol>
+    <button class="exam-primary" data-action="begin-exam">Comenzar examen <span aria-hidden="true">→</span></button>
+  </section></div>`;
+
+  if (state.examStage === "questions") {
+    const lesson = lessons[state.examIndex];
+    const progress = Math.round((state.examIndex / total) * 100);
+    return `<div class="exam-overlay"><section class="exam-shell exam-question" role="dialog" aria-modal="true" aria-labelledby="exam-question-title">
+      <button class="exam-close" data-action="close-exam" aria-label="Salir del examen">×</button>
+      <div class="exam-progress-copy"><span>${state.examMode === "writing" ? "✍️ EXAMEN DE ESCRITURA" : "🎤 EXAMEN DE VOZ"}</span><strong>Pregunta ${state.examIndex + 1} de ${total}</strong></div>
+      <div class="exam-progress"><span style="width:${progress}%"></span></div>
+      <div class="exam-prompt"><span aria-hidden="true">${lesson.emoji}</span><p>${escapeHtml(lesson.label)}</p><h2 id="exam-question-title">${escapeHtml(lesson.spanish)}</h2></div>
+      ${state.examMode === "writing" ? `<label class="exam-answer-label" for="exam-answer">Escribe la frase completa en inglés:</label><textarea id="exam-answer" class="exam-answer" placeholder="Escribe tu respuesta…" autocapitalize="sentences" spellcheck="false">${escapeHtml(state.examInput)}</textarea><button class="exam-primary" data-action="exam-submit-writing" ${state.examInput.trim() ? "" : "disabled"}>Guardar y continuar <span aria-hidden="true">→</span></button>` : `<div class="exam-speech-box"><p>Di la frase completa en inglés.</p><button class="exam-mic ${state.examStatus === "listening" ? "listening" : ""}" data-action="exam-speak" ${state.examStatus === "listening" ? "disabled" : ""}>${state.examStatus === "listening" ? "🎙️ Escuchando…" : "🎤 Hablar ahora"}</button>${state.examMessage ? `<small>${escapeHtml(state.examMessage)}</small>` : ""}</div>`}
+      <p class="exam-secret"><span aria-hidden="true">🤫</span> No mostraremos si está correcta hasta terminar.</p>
+    </section></div>`;
+  }
+
+  const result = state.examResult;
+  const percent = Math.round((result.score / total) * 100);
+  if (result.perfect) return `<div class="exam-overlay perfect-overlay"><section class="exam-shell exam-perfect" role="dialog" aria-modal="true" aria-labelledby="perfect-title">
+    <div class="balloons" aria-hidden="true"><span>🎈</span><span>🎈</span><span>🎈</span><span>🎈</span><span>🎈</span><span>🎈</span></div>
+    <div class="perfect-confetti" aria-hidden="true">✨ ⭐ 🌈 ⭐ ✨</div><span class="perfect-crown" aria-hidden="true">👑</span><p>¡EXAMEN PERFECTO!</p><h2 id="perfect-title">¡${total} de ${total}, ${CHILD_NAME}!</h2><strong>Maestra del inglés</strong><div class="perfect-score">100%</div><small>¡Eres inteligente, valiente y absolutamente increíble!</small>
+    <div class="exam-result-actions"><button data-action="retry-exam">Hacerlo otra vez</button><button class="exam-primary" data-action="finish-exam">🎉 ¡Celebrar!</button></div>
+  </section></div>`;
+
+  return `<div class="exam-overlay"><section class="exam-shell exam-results" role="dialog" aria-modal="true" aria-labelledby="results-title">
+    <div class="result-medal" aria-hidden="true">🏅</div><p class="exam-kicker">EXAMEN TERMINADO</p><h2 id="results-title">Puntuación: ${result.score} de ${total}</h2><div class="result-percent">${percent}%</div><p>¡Buen esfuerzo, ${CHILD_NAME}! Ahora ya sabes exactamente qué practicar.</p>
+    <div class="missed-list"><h3>Frases para volver a practicar</h3>${result.missed.map((item) => `<article><span>${lessons[item.index].emoji}</span><div><strong>${escapeHtml(lessons[item.index].spanish)}</strong><small>Respuesta correcta: ${escapeHtml(lessons[item.index].english)}</small><em>${state.examMode === "speech" ? "El iPad escuchó" : "Escribiste"}: ${escapeHtml(item.response || "Sin respuesta")}</em></div></article>`).join("")}</div>
+    <div class="exam-result-actions"><button data-action="practice-missed">← Volver a practicar</button><button class="exam-primary" data-action="retry-exam">Intentar el examen otra vez</button></div>
+  </section></div>`;
+}
+
+function prepareExam(stage = "intro") {
+  if (activeRecognition) { activeRecognition.abort(); activeRecognition = null; }
+  state.examStage = stage;
+  state.examIndex = 0;
+  state.examAnswers = [];
+  state.examInput = "";
+  state.examStatus = "idle";
+  state.examMessage = "";
+  state.examResult = null;
+}
+
+function recordExamAnswer(response, correct) {
+  const answers = [...state.examAnswers, { index: state.examIndex, response, correct }];
+  state.examAnswers = answers;
+  state.examInput = "";
+  state.examMessage = "";
+  if (state.examIndex < lessons.length - 1) {
+    state.examIndex += 1;
+    render();
+  } else {
+    finishExam(answers);
+  }
+}
+
+function finishExam(answers) {
+  const score = answers.filter((answer) => answer.correct).length;
+  const missed = answers.filter((answer) => !answer.correct);
+  const perfect = score === lessons.length;
+  state.examResult = { score, missed, perfect };
+  state.examStage = "result";
+  state.examBest[state.examMode] = Math.max(state.examBest[state.examMode], score);
+  state.stats.examsCompleted += 1;
+  answers.filter((answer) => answer.correct).forEach((answer) => {
+    if (!state.completed.includes(answer.index)) state.completed.push(answer.index);
+  });
+  if (perfect) {
+    state.stats.perfectExams += 1;
+    state.stars += 5;
+    speakBilingual("Perfect exam", "Examen perfecto");
+  } else {
+    speakBilingual("Exam complete", "Examen terminado");
+  }
+  checkNewAchievements(false);
+  save();
+  render();
+}
+
+function closeExam() {
+  if (state.examStage === "questions" && !window.confirm("¿Quieres salir? Las respuestas de este intento no se guardarán.")) return;
+  if (activeRecognition) { activeRecognition.abort(); activeRecognition = null; }
+  state.examOpen = false;
+  prepareExam("intro");
+  render();
+}
+
+function practiceMissed() {
+  const firstMissed = state.examResult?.missed?.[0]?.index ?? 0;
+  const examMode = state.examMode;
+  state.examOpen = false;
+  prepareExam("intro");
+  state.lessonIndex = firstMissed;
+  state.mode = examMode === "writing" ? "write" : "quiz";
+  state.writingStyle = "keyboard";
+  state.quizStyle = "speech";
+  resetLessonState();
+  render();
+}
+
+function startExamSpeech() {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) { state.examMessage = "Abre la página en Safari para usar el examen de voz."; render(); return; }
+  if (activeRecognition) activeRecognition.abort();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  const questionIndex = state.examIndex;
+  const recognition = new Recognition();
+  activeRecognition = recognition;
+  recognition.lang = "en-US";
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 5;
+  state.examStatus = "listening";
+  state.examMessage = "Habla ahora, despacio y cerca del iPad.";
+  render();
+  recognition.onresult = (event) => {
+    if (activeRecognition !== recognition) return;
+    const alternatives = Array.from(event.results[event.results.length - 1]).map((item) => item.transcript);
+    activeRecognition = null;
+    state.examStatus = "idle";
+    const correct = phraseWasUnderstood(alternatives, lessons[questionIndex]);
+    recordExamAnswer(alternatives[0] || "", correct);
+  };
+  recognition.onerror = (event) => {
+    if (activeRecognition !== recognition || event.error === "aborted") return;
+    activeRecognition = null;
+    state.examStatus = "idle";
+    const messages = { "not-allowed": "Permite el micrófono en Safari para continuar.", "service-not-allowed": "Activa Siri en los ajustes del iPad.", "no-speech": "No escuché una frase. Inténtalo otra vez.", network: "No pude usar el micrófono ahora. Revisa la conexión." };
+    state.examMessage = messages[event.error] || "No pude escuchar. Inténtalo otra vez.";
+    render();
+  };
+  recognition.onend = () => {
+    if (activeRecognition !== recognition) return;
+    activeRecognition = null;
+    if (state.examStatus === "listening") { state.examStatus = "idle"; state.examMessage = "No escuché la frase completa. Inténtalo otra vez."; render(); }
+  };
+  try { recognition.start(); } catch { activeRecognition = null; state.examStatus = "idle"; state.examMessage = "El micrófono está ocupado. Inténtalo otra vez."; render(); }
+}
+
 function render() {
   if (canvasObserver) canvasObserver.disconnect();
   document.body.classList.toggle("handwriting-active", state.mode === "write" && state.writingStyle === "hand");
@@ -328,7 +505,6 @@ function render() {
   const lesson = lessons[state.lessonIndex];
   const progress = Math.round((state.completed.length / lessons.length) * 100);
   const earned = achievements().filter((item) => item.earned).length;
-  const missionDone = state.familyMissions.includes(state.lessonIndex);
   const dots = lessons.map((_, index) => `<button data-action="lesson" data-index="${index}" class="${index === state.lessonIndex ? "current" : state.completed.includes(index) ? "done" : ""}" aria-label="Ir a frase ${index + 1}"></button>`).join("");
 
   document.querySelector("#app").innerHTML = `
@@ -353,20 +529,16 @@ function render() {
         <div class="lesson-content"><p class="lesson-label">${lesson.label}</p>${modeContent(lesson)}${feedbackHtml()}<div class="card-nav"><button data-action="prev" aria-label="Frase anterior">←</button><div>${dots}</div><button data-action="next" aria-label="Frase siguiente">→</button></div></div>
       </section>
 
-      <section class="tiny-mission ${state.missionOpen ? "mission-open" : ""}">
+      <section class="tiny-mission exam-launch-card">
         <div class="mascot-wrap"><img src="assets/og.png" alt="Colibrí explorador de Aventura de Inglés" /></div>
-        <div><span>MISIÓN EXTRA</span><h2>Dile la frase a alguien de tu familia</h2><p>${missionDone ? "¡Misión completada! Puedes repetirla." : "Escucha, mira a alguien y di la frase tú."}</p></div>
-        <button data-action="start-mission">${state.missionOpen ? "Cerrar" : missionDone ? "Repetir misión" : "Empezar misión"} <span aria-hidden="true">→</span></button>
-        ${state.missionOpen ? `<div class="mission-panel">
-          <ol class="mission-steps"><li><span>1</span><strong>Escucha</strong><small>Hear it</small></li><li><span>2</span><strong>Mira a alguien</strong><small>Look at someone</small></li><li><span>3</span><strong>Di la frase</strong><small>Say it yourself</small></li></ol>
-          <blockquote>${escapeHtml(lesson.english)}</blockquote>
-          <div class="mission-actions"><button data-action="mission-listen">🔊 Escuchar una vez</button><button class="mission-complete" data-action="mission-complete" ${missionDone ? "disabled" : ""}>${missionDone ? "✓ Completada" : "✅ ¡La dije!"}</button></div>
-        </div>` : ""}
+        <div><span>MISIÓN EXTRA · EXAMEN</span><h2>El gran examen de Isabelle</h2><p>9 preguntas · Escritura o voz · Puntuación al final</p><div class="exam-mini-scores"><small>✍️ ${state.examBest.writing}/9</small><small>🎤 ${state.examBest.speech}/9</small></div></div>
+        <button data-action="open-exam">Entrar al examen <span aria-hidden="true">→</span></button>
       </section>
       <footer><p>Hecho con 💜 para aprender en familia</p><small>El progreso se guarda en este dispositivo. El micrófono lo gestiona Safari. · Versión ${APP_VERSION}</small></footer>
 
       ${state.achievementsOpen ? `<div class="modal-backdrop" data-action="close-modal"><section class="achievement-modal" role="dialog" aria-modal="true" aria-labelledby="achievement-title"><button class="close" data-action="close-modal" aria-label="Cerrar">×</button><span class="big-medal" aria-hidden="true">🏅</span><h2 id="achievement-title">Mis logros</h2><p>Cada intento cuenta. ¡Sigue explorando!</p><div class="achievement-grid">${achievements().map((item) => `<article class="${item.earned ? "earned" : "locked"}"><span>${item.earned ? item.icon : "🔒"}</span><strong>${item.name}</strong><small>${item.earned ? item.detail : "Sigue practicando"}</small></article>`).join("")}</div><button class="primary full" data-action="close-modal">¡Vamos a practicar!</button><button class="reset-button" data-action="reset">↻ Reiniciar todo el progreso</button></section></div>` : ""}
       ${state.celebration ? `<div class="modal-backdrop celebration-backdrop"><section class="celebration-card" role="dialog" aria-modal="true" aria-labelledby="celebration-title"><div class="confetti" aria-hidden="true">⭐ ✨ 🌈 ✨ ⭐</div><span class="celebration-icon" aria-hidden="true">${state.celebration.icon}</span><p>NUEVO LOGRO</p><h2 id="celebration-title">${escapeHtml(state.celebration.name)}</h2><strong>${escapeHtml(state.celebration.detail)}</strong><small>¡Estamos muy orgullosos de ti, ${CHILD_NAME}!</small><button class="primary full" data-action="close-celebration">¡Seguir aprendiendo!</button></section></div>` : ""}
+      ${examHtml()}
     </main>`;
 
   bindEvents();
@@ -390,7 +562,7 @@ function resetLessonState() {
 }
 
 function resetAllProgress() {
-  const confirmed = window.confirm("¿Quieres borrar todas las estrellas, logros, misiones y progreso de prueba?");
+  const confirmed = window.confirm("¿Quieres borrar todas las estrellas, logros, exámenes y progreso de prueba?");
   if (!confirmed) return;
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   localStorage.removeItem(STORAGE_KEY);
@@ -413,10 +585,20 @@ function resetAllProgress() {
     writingFullscreen: false,
     familyMissions: [],
     missionOpen: false,
+    examOpen: false,
+    examMode: "writing",
+    examStage: "intro",
+    examIndex: 0,
+    examAnswers: [],
+    examInput: "",
+    examStatus: "idle",
+    examMessage: "",
+    examResult: null,
+    examBest: { writing: 0, speech: 0 },
     speechStatus: "idle",
     speechTranscript: "",
     speechMessage: "",
-    stats: { typingWins: 0, handwritingWins: 0, speechWins: 0, quizWins: 0 },
+    stats: { typingWins: 0, handwritingWins: 0, speechWins: 0, quizWins: 0, examsCompleted: 0, perfectExams: 0 },
   };
   save();
   render();
@@ -523,21 +705,15 @@ function bindEvents() {
     if (action === "prev") goToLesson(state.lessonIndex - 1);
     if (action === "next") goToLesson(state.lessonIndex + 1);
     if (action === "lesson") goToLesson(Number(button.dataset.index));
-    if (action === "start-mission") {
-      state.missionOpen = !state.missionOpen;
-      if (state.missionOpen) speak(lesson.english, "en-US");
-      render();
-    }
-    if (action === "mission-listen") speak(lesson.english, "en-US");
-    if (action === "mission-complete" && !state.familyMissions.includes(state.lessonIndex)) {
-      state.familyMissions = [...state.familyMissions, state.lessonIndex];
-      state.stars += 1;
-      markPracticed(state.lessonIndex);
-      checkNewAchievements();
-      speakBilingual("Mission complete", "Misión cumplida");
-      save();
-      render();
-    }
+    if (action === "open-exam") { state.examOpen = true; prepareExam("intro"); render(); }
+    if (action === "close-exam") closeExam();
+    if (action === "exam-mode" && state.examStage === "intro") { state.examMode = button.dataset.value; render(); }
+    if (action === "begin-exam") { prepareExam("questions"); render(); }
+    if (action === "exam-submit-writing" && state.examInput.trim()) recordExamAnswer(state.examInput, writtenAnswerIsCorrect(state.examInput, state.examIndex));
+    if (action === "exam-speak") startExamSpeech();
+    if (action === "retry-exam") { prepareExam("questions"); render(); }
+    if (action === "practice-missed") practiceMissed();
+    if (action === "finish-exam") { state.examOpen = false; prepareExam("intro"); render(); }
     if (action === "reset") resetAllProgress();
     if (action === "writing-style") { state.writingStyle = button.dataset.value; state.feedback = "idle"; state.writingFullscreen = false; render(); }
     if (action === "quiz-style") { state.quizStyle = button.dataset.value; state.feedback = "idle"; state.speechStatus = "idle"; state.speechTranscript = ""; state.speechMessage = ""; render(); }
@@ -561,6 +737,13 @@ function bindEvents() {
     state.feedback = "idle";
     const check = document.querySelector('[data-action="check"]');
     if (check) check.disabled = !state.answer.trim();
+  });
+
+  const examInput = document.querySelector("#exam-answer");
+  if (examInput) examInput.addEventListener("input", (event) => {
+    state.examInput = event.target.value;
+    const submit = document.querySelector('[data-action="exam-submit-writing"]');
+    if (submit) submit.disabled = !state.examInput.trim();
   });
 }
 
