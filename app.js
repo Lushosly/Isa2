@@ -1,4 +1,4 @@
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.6.0";
 const CHILD_NAME = "Isabelle";
 
 const lessons = [
@@ -25,6 +25,7 @@ let state = {
   feedback: "idle",
   showSound: false,
   quizOptions: [0, 3, 6],
+  quizStyle: "speech",
   childName: CHILD_NAME,
   achievementsOpen: false,
   celebration: null,
@@ -99,7 +100,15 @@ function phraseWasUnderstood(transcripts, lesson) {
   const expected = [lesson.answer];
   if (state.lessonIndex === 0) expected.push("my name is isabel");
   if (state.lessonIndex === 4) expected.push("i am six years old");
-  return transcripts.some((spoken) => expected.some((answer) => similarity(spoken, answer) >= 0.76));
+  return transcripts.some((spoken) => expected.some((answer) => {
+    const normalizedSpoken = normalize(spoken).replace(/\bfavourite\b/g, "favorite");
+    const normalizedAnswer = normalize(answer).replace(/\bfavourite\b/g, "favorite");
+    const expectedWords = normalizedAnswer.split(" ").filter((word) => word.length > 1);
+    const spokenWords = normalizedSpoken.split(" ");
+    const understoodWords = expectedWords.filter((word) => spokenWords.some((heard) => similarity(word, heard) >= 0.72));
+    const wordCoverage = understoodWords.length / Math.max(expectedWords.length, 1);
+    return similarity(normalizedSpoken, normalizedAnswer) >= 0.68 || wordCoverage >= 0.75;
+  }));
 }
 
 function voiceFor(language) {
@@ -180,8 +189,8 @@ function markPracticed(index) {
 function recordWin(source) {
   if (source === "typing") state.stats.typingWins += 1;
   if (source === "handwriting") state.stats.handwritingWins += 1;
-  if (source === "speech") state.stats.speechWins += 1;
-  if (source === "quiz") state.stats.quizWins += 1;
+  if (source === "speech" || source === "speech-quiz") state.stats.speechWins += 1;
+  if (source === "quiz" || source === "speech-quiz") state.stats.quizWins += 1;
 }
 
 function awardSuccess(english = "Great job", spanish = "Buen trabajo", source = "practice") {
@@ -213,7 +222,7 @@ function achievements() {
     { id: "first-star", icon: "⭐", name: "Primera estrella", detail: "¡Tu aventura comenzó!", earned: state.stars >= 1 },
     { id: "brave-voice", icon: "🎤", name: "Voz valiente", detail: "Hablaste en inglés", earned: state.stats.speechWins >= 1 },
     { id: "keyboard-star", icon: "⌨️", name: "Estrella del teclado", detail: "Escribiste una frase correcta", earned: state.stats.typingWins >= 1 },
-    { id: "magic-pencil", icon: "✏️", name: "Lápiz mágico", detail: "Seguiste las letras con cuidado", earned: state.stats.handwritingWins >= 1 },
+    { id: "magic-pencil", icon: "✏️", name: "Lápiz mágico", detail: "Escribiste una frase a mano", earned: state.stats.handwritingWins >= 1 },
     { id: "quiz-champion", icon: "⚡", name: "Campeona de retos", detail: "Ganaste 3 retos", earned: state.stats.quizWins >= 3 },
     { id: "super-ear", icon: "🎧", name: "Súper oído", detail: "Practicaste 3 frases", earned: state.completed.length >= 3 },
     { id: "family-hero", icon: "💜", name: "Heroína de la familia", detail: "Compartiste una frase", earned: state.familyMissions.length >= 1 },
@@ -277,7 +286,7 @@ function modeContent(lesson) {
         </div>` : `
         <div class="handwriting-practice ${state.writingFullscreen ? "is-fullscreen" : ""}">
           <div class="handwriting-focus-header">
-            <p class="handwriting-instruction"><span aria-hidden="true">☝️</span> Repasa la frase con tu dedo o Apple Pencil.</p>
+            <p class="handwriting-instruction"><span aria-hidden="true">☝️</span> Escribe la frase con tu dedo o Apple Pencil.</p>
             <button class="expand-writing" data-action="toggle-handwriting-fullscreen" aria-label="${state.writingFullscreen ? "Salir de pantalla completa" : "Abrir cuaderno en pantalla completa"}">${state.writingFullscreen ? "✕ Salir" : "⛶ Pantalla completa"}</button>
           </div>
           <div class="fullscreen-sentence"><small>Frase para practicar</small><strong>${escapeHtml(lesson.english)}</strong></div>
@@ -288,22 +297,27 @@ function modeContent(lesson) {
           <div id="handwriting-result" class="handwriting-result" aria-live="polite"></div>
           <div class="writing-help handwriting-actions">
             <button class="hint-button" data-action="clear-hand" disabled>🧽 Borrar</button>
-            <button class="primary" data-action="finish-hand" disabled>✓ Revisar mi trazado</button>
+            <button class="primary" data-action="finish-hand" disabled>✓ Terminé de escribir</button>
           </div>
         </div>`}
     </div>`;
 
   return `<div class="quiz-zone">
-    <p class="write-prompt">Toca la frase que significa:</p>
-    <h2>${escapeHtml(lesson.spanish)}</h2>
-    <div class="quiz-options">${state.quizOptions.map((index) => `<button data-action="quiz" data-index="${index}">${escapeHtml(lessons[index].english)}</button>`).join("")}</div>
-    <section class="speaking-challenge" aria-live="polite">
-      <div><span aria-hidden="true">🎤</span><div><h3>Reto de voz</h3><p>Di la frase en inglés. El iPad comprobará si la entendió.</p></div></div>
-      <div class="speech-actions"><button class="secondary" data-action="hear-en">🔊 Escuchar</button><button class="mic-button ${state.speechStatus === "listening" ? "listening" : ""}" data-action="speak-challenge" ${state.speechStatus === "listening" ? "disabled" : ""}>${state.speechStatus === "listening" ? "🎙️ Escuchando…" : "🎤 Decir la frase"}</button></div>
-      ${state.speechTranscript ? `<p class="heard-text"><strong>Escuché:</strong> “${escapeHtml(state.speechTranscript)}”</p>` : ""}
-      ${state.speechMessage ? `<p class="speech-message">${escapeHtml(state.speechMessage)}</p>` : ""}
-      <small>Comprueba las palabras reconocidas; no califica el acento de forma profesional.</small>
-    </section>
+    <div class="quiz-style-tabs" role="group" aria-label="Tipo de reto">
+      <button class="${state.quizStyle === "speech" ? "active" : ""}" data-action="quiz-style" data-value="speech">🎤 Decir</button>
+      <button class="${state.quizStyle === "choose" ? "active" : ""}" data-action="quiz-style" data-value="choose">👆 Escoger</button>
+    </div>
+    ${state.quizStyle === "speech" ? `
+      <section class="speaking-challenge primary-speech" aria-live="polite">
+        <div><span aria-hidden="true">🎤</span><div><h3>Di esta frase en inglés</h3><p>${escapeHtml(lesson.spanish)}</p></div></div>
+        <div class="speech-actions"><button class="secondary" data-action="hear-en">🔊 Escuchar una pista</button><button class="mic-button ${state.speechStatus === "listening" ? "listening" : ""}" data-action="speak-challenge" ${state.speechStatus === "listening" ? "disabled" : ""}>${state.speechStatus === "listening" ? "🎙️ Escuchando…" : "🎤 Hablar ahora"}</button></div>
+        ${state.speechTranscript ? `<p class="heard-text"><strong>Escuché:</strong> “${escapeHtml(state.speechTranscript)}”</p>` : ""}
+        ${state.speechMessage ? `<p class="speech-message">${escapeHtml(state.speechMessage)}</p>` : ""}
+        <small>El reto acepta pequeñas diferencias de pronunciación. Comprueba las palabras entendidas, no califica el acento profesionalmente.</small>
+      </section>` : `
+      <p class="write-prompt">Toca la frase que significa:</p>
+      <h2>${escapeHtml(lesson.spanish)}</h2>
+      <div class="quiz-options">${state.quizOptions.map((index) => `<button data-action="quiz" data-index="${index}">${escapeHtml(lessons[index].english)}</button>`).join("")}</div>`}
   </div>`;
 }
 
@@ -389,6 +403,7 @@ function resetAllProgress() {
     feedback: "idle",
     showSound: false,
     quizOptions: [0, 3, 6],
+    quizStyle: "speech",
     childName: CHILD_NAME,
     achievementsOpen: false,
     celebration: null,
@@ -445,7 +460,7 @@ function startSpeechChallenge() {
     activeRecognition = null;
     if (phraseWasUnderstood(alternatives, lessons[state.lessonIndex])) {
       state.speechMessage = "¡El iPad entendió la frase!";
-      awardSuccess("I understood you", "Te entendí muy bien", "speech");
+      awardSuccess("I understood you", "Te entendí muy bien", "speech-quiz");
     } else {
       state.feedback = "try";
       state.speechMessage = "Casi. Escucha la frase y vuelve a intentarlo.";
@@ -525,6 +540,7 @@ function bindEvents() {
     }
     if (action === "reset") resetAllProgress();
     if (action === "writing-style") { state.writingStyle = button.dataset.value; state.feedback = "idle"; state.writingFullscreen = false; render(); }
+    if (action === "quiz-style") { state.quizStyle = button.dataset.value; state.feedback = "idle"; state.speechStatus = "idle"; state.speechTranscript = ""; state.speechMessage = ""; render(); }
     if (action === "toggle-handwriting-fullscreen") toggleHandwritingFullscreen(button);
     if (action === "speak-challenge") startSpeechChallenge();
     if (action === "hint") { state.answer = lesson.answer.slice(0, Math.max(2, Math.ceil(lesson.answer.length * 0.35))); render(); }
@@ -642,74 +658,12 @@ function setupCanvas() {
     document.querySelector('[data-action="finish-hand"]').disabled = true;
   });
 
-  const traceScore = () => {
-    const bounds = canvas.getBoundingClientRect();
-    const width = Math.max(1, Math.round(bounds.width));
-    const height = Math.max(1, Math.round(bounds.height));
-    const guide = document.createElement("canvas");
-    guide.width = width;
-    guide.height = height;
-    const context = guide.getContext("2d", { willReadFrequently: true });
-    const traceElement = document.querySelector(".trace-text");
-    const traceStyle = getComputedStyle(traceElement);
-    const traceBounds = traceElement.getBoundingClientRect();
-    const fontSize = parseFloat(traceStyle.fontSize) || 42;
-    context.font = `${traceStyle.fontWeight} ${fontSize}px ${traceStyle.fontFamily}`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillStyle = "#000";
-    const words = lessons[state.lessonIndex].english.split(/\s+/);
-    const lines = [];
-    let line = "";
-    const maxWidth = Math.max(120, traceBounds.width);
-    words.forEach((word) => {
-      const trial = line ? `${line} ${word}` : word;
-      if (line && context.measureText(trial).width > maxWidth) {
-        lines.push(line);
-        line = word;
-      } else {
-        line = trial;
-      }
-    });
-    if (line) lines.push(line);
-    const lineHeight = fontSize * (parseFloat(traceStyle.lineHeight) / fontSize || 1.25);
-    const centerX = traceBounds.left - bounds.left + traceBounds.width / 2;
-    const centerY = traceBounds.top - bounds.top + traceBounds.height / 2;
-    const firstY = centerY - ((lines.length - 1) * lineHeight) / 2;
-    lines.forEach((text, index) => context.fillText(text, centerX, firstY + index * lineHeight));
-    const mask = context.getImageData(0, 0, width, height).data;
-    const points = strokes.flat().filter((_, index) => index % 2 === 0);
-    let near = 0;
-    const coveredZones = new Set();
-    points.forEach((sample) => {
-      const x = Math.round(sample.x * width);
-      const y = Math.round(sample.y * height);
-      let found = false;
-      for (let offsetY = -18; offsetY <= 18 && !found; offsetY += 6) {
-        for (let offsetX = -18; offsetX <= 18; offsetX += 6) {
-          const checkX = Math.max(0, Math.min(width - 1, x + offsetX));
-          const checkY = Math.max(0, Math.min(height - 1, y + offsetY));
-          if (mask[(checkY * width + checkX) * 4 + 3] > 20) { found = true; break; }
-        }
-      }
-      if (found) {
-        near += 1;
-        coveredZones.add(`${Math.floor(sample.x * 4)}-${Math.floor(sample.y * 3)}`);
-      }
-    });
-    return { accepted: points.length >= 25 && near / Math.max(points.length, 1) >= 0.3 && coveredZones.size >= 3, percent: Math.round((near / Math.max(points.length, 1)) * 100) };
-  };
-
   document.querySelector('[data-action="finish-hand"]').addEventListener("click", () => {
     const result = document.querySelector("#handwriting-result");
-    const score = traceScore();
-    if (score.accepted) {
-      if (result) result.innerHTML = `<span>🌟</span><strong>¡Seguiste muy bien las letras!</strong>`;
-      awardSuccess("Beautiful tracing", "Qué bonito trazado", "handwriting");
-    } else {
-      if (result) result.innerHTML = `<span>🌱</span><strong>¡Buen intento! Trata de seguir un poquito más las letras claras.</strong>`;
-      speakBilingual("Nice try", "Muy buen intento");
-    }
+    if (!result) return;
+    result.innerHTML = `<div class="handwriting-review"><span aria-hidden="true">👀</span><div><strong>¡Muy bien! Compara tu frase con el modelo:</strong><small>${escapeHtml(lessons[state.lessonIndex].english)}</small></div><div class="review-actions"><button data-review="again">✏️ Seguir escribiendo</button><button class="review-confirm" data-review="done">✅ Sí, terminé</button></div></div>`;
+    result.querySelector('[data-review="again"]').addEventListener("click", () => { result.innerHTML = ""; });
+    result.querySelector('[data-review="done"]').addEventListener("click", () => awardSuccess("Beautiful writing", "Qué bonita escritura", "handwriting"));
   });
 
   const blockSelection = (event) => event.preventDefault();
