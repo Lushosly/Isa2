@@ -1,4 +1,4 @@
-const APP_VERSION = "1.7.0";
+const APP_VERSION = "1.9.0";
 const CHILD_NAME = "Isabelle";
 
 const lessons = [
@@ -48,7 +48,7 @@ let state = {
   speechStatus: "idle",
   speechTranscript: "",
   speechMessage: "",
-  stats: { typingWins: 0, handwritingWins: 0, speechWins: 0, quizWins: 0, examsCompleted: 0, perfectExams: 0 },
+  stats: { typingWins: 0, scribbleWins: 0, handwritingWins: 0, speechWins: 0, quizWins: 0, examsCompleted: 0, perfectExams: 0 },
 };
 
 try {
@@ -61,6 +61,7 @@ try {
     state.unlockedAchievements = Array.isArray(stored.unlockedAchievements) ? stored.unlockedAchievements : [];
     state.stats = {
       typingWins: Number.isFinite(stored.stats?.typingWins) ? stored.stats.typingWins : 0,
+      scribbleWins: Number.isFinite(stored.stats?.scribbleWins) ? stored.stats.scribbleWins : 0,
       handwritingWins: Number.isFinite(stored.stats?.handwritingWins) ? stored.stats.handwritingWins : 0,
       speechWins: Number.isFinite(stored.stats?.speechWins) ? stored.stats.speechWins : 0,
       quizWins: Number.isFinite(stored.stats?.quizWins) ? stored.stats.quizWins : 0,
@@ -214,6 +215,7 @@ function markPracticed(index) {
 
 function recordWin(source) {
   if (source === "typing") state.stats.typingWins += 1;
+  if (source === "scribble") state.stats.scribbleWins += 1;
   if (source === "handwriting") state.stats.handwritingWins += 1;
   if (source === "speech" || source === "speech-quiz") state.stats.speechWins += 1;
   if (source === "quiz" || source === "speech-quiz") state.stats.quizWins += 1;
@@ -248,6 +250,7 @@ function achievements() {
     { id: "first-star", icon: "⭐", name: "Primera estrella", detail: "¡Tu aventura comenzó!", earned: state.stars >= 1 },
     { id: "brave-voice", icon: "🎤", name: "Voz valiente", detail: "Hablaste en inglés", earned: state.stats.speechWins >= 1 },
     { id: "keyboard-star", icon: "⌨️", name: "Estrella del teclado", detail: "Escribiste una frase correcta", earned: state.stats.typingWins >= 1 },
+    { id: "smart-pencil", icon: "✍️", name: "Pencil inteligente", detail: "El iPad reconoció tu escritura", earned: state.stats.scribbleWins >= 1 },
     { id: "magic-pencil", icon: "✏️", name: "Lápiz mágico", detail: "Escribiste una frase a mano", earned: state.stats.handwritingWins >= 1 },
     { id: "quiz-champion", icon: "⚡", name: "Campeona de retos", detail: "Ganaste 3 retos", earned: state.stats.quizWins >= 3 },
     { id: "super-ear", icon: "🎧", name: "Súper oído", detail: "Practicaste 3 frases", earned: state.completed.length >= 3 },
@@ -303,7 +306,8 @@ function modeContent(lesson) {
       <h2>${escapeHtml(lesson.spanish)}</h2>
       <div class="writing-style-tabs" role="group" aria-label="Forma de escribir">
         <button class="${state.writingStyle === "keyboard" ? "active" : ""}" data-action="writing-style" data-value="keyboard">⌨️ Teclado</button>
-        <button class="${state.writingStyle === "hand" ? "active" : ""}" data-action="writing-style" data-value="hand">✏️ A mano</button>
+        <button class="${state.writingStyle === "scribble" ? "active" : ""}" data-action="writing-style" data-value="scribble">✍️ Pencil inteligente</button>
+        <button class="${state.writingStyle === "hand" ? "active" : ""}" data-action="writing-style" data-value="hand">🖐️ Cuaderno libre</button>
       </div>
       ${state.writingStyle === "keyboard" ? `
         <label for="writing-answer">Tu respuesta</label>
@@ -311,11 +315,24 @@ function modeContent(lesson) {
         <div class="writing-help">
           <button class="hint-button" data-action="hint">💡 Dame una pista</button>
           <button class="primary" data-action="check" ${state.answer.trim() ? "" : "disabled"}>Comprobar</button>
+        </div>` : state.writingStyle === "scribble" ? `
+        <div class="scribble-practice ${state.writingFullscreen ? "is-fullscreen" : ""}">
+          <div class="handwriting-focus-header">
+            <p class="handwriting-instruction"><span aria-hidden="true">✍️</span> Toca el recuadro con el Apple Pencil y escribe en inglés.</p>
+            <button class="expand-writing" data-action="toggle-writing-fullscreen" aria-label="${state.writingFullscreen ? "Salir de pantalla completa" : "Abrir Pencil inteligente en pantalla completa"}">${state.writingFullscreen ? "✕ Salir" : "⛶ Pantalla completa"}</button>
+          </div>
+          <div class="scribble-fullscreen-prompt"><small>Escribe en inglés:</small><strong>${escapeHtml(lesson.spanish)}</strong></div>
+          <div class="scribble-card">
+            <span aria-hidden="true">✍️</span><label for="writing-answer">Escribe aquí con Apple Pencil</label>
+            <textarea id="writing-answer" class="scribble-answer" lang="en" placeholder="El iPad convertirá tu escritura en texto…" autocapitalize="sentences" spellcheck="false">${escapeHtml(state.answer)}</textarea>
+            <small>Scribble convierte tu letra en palabras. Revisa el texto convertido antes de comprobar.</small>
+          </div>
+          <div class="writing-help scribble-actions"><button class="hint-button" data-action="clear-writing" ${state.answer.trim() ? "" : "disabled"}>🧽 Borrar</button><button class="primary" data-action="check" ${state.answer.trim() ? "" : "disabled"}>✓ Comprobar escritura</button></div>
         </div>` : `
         <div class="handwriting-practice ${state.writingFullscreen ? "is-fullscreen" : ""}">
           <div class="handwriting-focus-header">
             <p class="handwriting-instruction"><span aria-hidden="true">☝️</span> Escribe la frase con tu dedo o Apple Pencil.</p>
-            <button class="expand-writing" data-action="toggle-handwriting-fullscreen" aria-label="${state.writingFullscreen ? "Salir de pantalla completa" : "Abrir cuaderno en pantalla completa"}">${state.writingFullscreen ? "✕ Salir" : "⛶ Pantalla completa"}</button>
+            <button class="expand-writing" data-action="toggle-writing-fullscreen" aria-label="${state.writingFullscreen ? "Salir de pantalla completa" : "Abrir cuaderno en pantalla completa"}">${state.writingFullscreen ? "✕ Salir" : "⛶ Pantalla completa"}</button>
           </div>
           <div class="fullscreen-sentence"><small>Frase para practicar</small><strong>${escapeHtml(lesson.english)}</strong></div>
           <div class="writing-paper">
@@ -509,12 +526,18 @@ function render() {
 
   document.querySelector("#app").innerHTML = `
     <main class="app-shell">
+      <div class="storybook-decor" aria-hidden="true">
+        <img class="decor-butterfly butterfly-one" src="assets/openmoji/butterfly.svg" alt="" draggable="false" />
+        <img class="decor-butterfly butterfly-two" src="assets/openmoji/butterfly.svg" alt="" draggable="false" />
+        <span class="decor-heart heart-one">♥</span><span class="decor-heart heart-two">♥</span>
+        <span class="decor-twinkle twinkle-one">✦</span><span class="decor-twinkle twinkle-two">✦</span>
+      </div>
       <header class="topbar">
         <a class="brand" href="#top" aria-label="Aventura de Inglés, inicio"><span class="brand-mark" aria-hidden="true">🪽</span><span><strong>Aventura</strong><small>de Inglés</small></span></a>
         <div class="top-actions"><button class="star-pill" data-action="achievements" aria-label="${state.stars} estrellas. Ver logros"><span aria-hidden="true">⭐</span> ${state.stars}</button><div class="avatar" id="avatar" aria-label="Perfil de ${escapeHtml(state.childName)}">${escapeHtml((state.childName || "I").slice(0, 1).toUpperCase())}</div></div>
       </header>
 
-      <section class="welcome" id="top"><div><p class="eyebrow">MISIÓN DEL DÍA · 10 MINUTOS</p><h1>¡Hola, <span class="fixed-name">${CHILD_NAME}</span>! <span aria-hidden="true">👋</span></h1><p>Hoy vamos a escuchar, hablar y escribir en inglés.</p></div><button class="achievements-button" data-action="achievements"><span aria-hidden="true">🏅</span><span><strong>Mis logros</strong><small>${earned} de ${achievements().length}</small></span></button></section>
+      <section class="welcome" id="top"><img class="welcome-rainbow" src="assets/openmoji/rainbow.svg" alt="" aria-hidden="true" draggable="false" /><div class="welcome-copy"><p class="eyebrow">MISIÓN DEL DÍA · 10 MINUTOS</p><h1>¡Hola, <span class="fixed-name">${CHILD_NAME}</span>! <span aria-hidden="true">👋</span></h1><p>Hoy vamos a escuchar, hablar y escribir en inglés.</p><div class="happy-trail" aria-hidden="true"><span>♥</span><span>✦</span><span>♥</span><span>✦</span><span>♥</span></div></div><button class="achievements-button" data-action="achievements"><span aria-hidden="true">🏅</span><span><strong>Mis logros</strong><small>${earned} de ${achievements().length}</small></span></button></section>
 
       <section class="progress-card" aria-label="Progreso: ${progress}%"><div class="progress-copy"><span>Tu aventura de hoy</span><strong>${state.completed.length} / ${lessons.length} frases</strong></div><div class="progress-track"><span style="width:${progress}%"></span></div><span class="progress-percent">${progress}%</span></section>
 
@@ -525,7 +548,7 @@ function render() {
       </nav>
 
       <section class="lesson-card ${lesson.color}" aria-live="polite">
-        <div class="lesson-visual" aria-hidden="true"><div class="spark one">✦</div><div class="spark two">●</div><span>${lesson.emoji}</span><small>${state.lessonIndex + 1} de ${lessons.length}</small></div>
+        <div class="lesson-visual" aria-hidden="true"><div class="spark one">✦</div><div class="spark two">♥</div><div class="spark three">✦</div><span>${lesson.emoji}</span><small>${state.lessonIndex + 1} de ${lessons.length}</small></div>
         <div class="lesson-content"><p class="lesson-label">${lesson.label}</p>${modeContent(lesson)}${feedbackHtml()}<div class="card-nav"><button data-action="prev" aria-label="Frase anterior">←</button><div>${dots}</div><button data-action="next" aria-label="Frase siguiente">→</button></div></div>
       </section>
 
@@ -534,7 +557,7 @@ function render() {
         <div><span>MISIÓN EXTRA · EXAMEN</span><h2>El gran examen de Isabelle</h2><p>9 preguntas · Escritura o voz · Puntuación al final</p><div class="exam-mini-scores"><small>✍️ ${state.examBest.writing}/9</small><small>🎤 ${state.examBest.speech}/9</small></div></div>
         <button data-action="open-exam">Entrar al examen <span aria-hidden="true">→</span></button>
       </section>
-      <footer><p>Hecho con 💜 para aprender en familia</p><small>El progreso se guarda en este dispositivo. El micrófono lo gestiona Safari. · Versión ${APP_VERSION}</small></footer>
+      <footer><p><span aria-hidden="true">🌈</span> Hecho con 💜 para aprender en familia <span aria-hidden="true">🦋</span></p><small>El progreso se guarda en este dispositivo. El micrófono lo gestiona Safari. · Versión ${APP_VERSION}</small><small class="asset-credit">Decoraciones de <a href="https://openmoji.org/" target="_blank" rel="noopener">OpenMoji</a> · CC BY-SA 4.0</small></footer>
 
       ${state.achievementsOpen ? `<div class="modal-backdrop" data-action="close-modal"><section class="achievement-modal" role="dialog" aria-modal="true" aria-labelledby="achievement-title"><button class="close" data-action="close-modal" aria-label="Cerrar">×</button><span class="big-medal" aria-hidden="true">🏅</span><h2 id="achievement-title">Mis logros</h2><p>Cada intento cuenta. ¡Sigue explorando!</p><div class="achievement-grid">${achievements().map((item) => `<article class="${item.earned ? "earned" : "locked"}"><span>${item.earned ? item.icon : "🔒"}</span><strong>${item.name}</strong><small>${item.earned ? item.detail : "Sigue practicando"}</small></article>`).join("")}</div><button class="primary full" data-action="close-modal">¡Vamos a practicar!</button><button class="reset-button" data-action="reset">↻ Reiniciar todo el progreso</button></section></div>` : ""}
       ${state.celebration ? `<div class="modal-backdrop celebration-backdrop"><section class="celebration-card" role="dialog" aria-modal="true" aria-labelledby="celebration-title"><div class="confetti" aria-hidden="true">⭐ ✨ 🌈 ✨ ⭐</div><span class="celebration-icon" aria-hidden="true">${state.celebration.icon}</span><p>NUEVO LOGRO</p><h2 id="celebration-title">${escapeHtml(state.celebration.name)}</h2><strong>${escapeHtml(state.celebration.detail)}</strong><small>¡Estamos muy orgullosos de ti, ${CHILD_NAME}!</small><button class="primary full" data-action="close-celebration">¡Seguir aprendiendo!</button></section></div>` : ""}
@@ -598,15 +621,15 @@ function resetAllProgress() {
     speechStatus: "idle",
     speechTranscript: "",
     speechMessage: "",
-    stats: { typingWins: 0, handwritingWins: 0, speechWins: 0, quizWins: 0, examsCompleted: 0, perfectExams: 0 },
+    stats: { typingWins: 0, scribbleWins: 0, handwritingWins: 0, speechWins: 0, quizWins: 0, examsCompleted: 0, perfectExams: 0 },
   };
   save();
   render();
 }
 
-function toggleHandwritingFullscreen(button) {
+function toggleWritingFullscreen(button) {
   state.writingFullscreen = !state.writingFullscreen;
-  const practice = document.querySelector(".handwriting-practice");
+  const practice = document.querySelector(".handwriting-practice, .scribble-practice");
   practice?.classList.toggle("is-fullscreen", state.writingFullscreen);
   document.body.classList.toggle("handwriting-fullscreen", state.writingFullscreen);
   button.innerHTML = state.writingFullscreen ? "✕ Salir" : "⛶ Pantalla completa";
@@ -715,15 +738,16 @@ function bindEvents() {
     if (action === "practice-missed") practiceMissed();
     if (action === "finish-exam") { state.examOpen = false; prepareExam("intro"); render(); }
     if (action === "reset") resetAllProgress();
-    if (action === "writing-style") { state.writingStyle = button.dataset.value; state.feedback = "idle"; state.writingFullscreen = false; render(); }
+    if (action === "writing-style") { state.writingStyle = button.dataset.value; state.answer = ""; state.feedback = "idle"; state.writingFullscreen = false; render(); }
     if (action === "quiz-style") { state.quizStyle = button.dataset.value; state.feedback = "idle"; state.speechStatus = "idle"; state.speechTranscript = ""; state.speechMessage = ""; render(); }
-    if (action === "toggle-handwriting-fullscreen") toggleHandwritingFullscreen(button);
+    if (action === "toggle-writing-fullscreen") toggleWritingFullscreen(button);
+    if (action === "clear-writing") { state.answer = ""; state.feedback = "idle"; render(); }
     if (action === "speak-challenge") startSpeechChallenge();
     if (action === "hint") { state.answer = lesson.answer.slice(0, Math.max(2, Math.ceil(lesson.answer.length * 0.35))); render(); }
     if (action === "check") {
-      const supplied = normalize(state.answer);
-      const accepted = supplied === normalize(lesson.answer) || (state.lessonIndex === 4 && supplied === "i am six years old");
-      if (accepted) awardSuccess("Great job", "Buen trabajo", "typing"); else { state.feedback = "try"; speakBilingual("Try again", "Inténtalo otra vez"); render(); }
+      const accepted = writtenAnswerIsCorrect(state.answer, state.lessonIndex);
+      const source = state.writingStyle === "scribble" ? "scribble" : "typing";
+      if (accepted) awardSuccess("Great job", "Buen trabajo", source); else { state.feedback = "try"; speakBilingual("Try again", "Inténtalo otra vez"); render(); }
     }
     if (action === "quiz") {
       if (Number(button.dataset.index) === state.lessonIndex) awardSuccess("Awesome", "Excelente", "quiz");
@@ -737,6 +761,8 @@ function bindEvents() {
     state.feedback = "idle";
     const check = document.querySelector('[data-action="check"]');
     if (check) check.disabled = !state.answer.trim();
+    const clear = document.querySelector('[data-action="clear-writing"]');
+    if (clear) clear.disabled = !state.answer.trim();
   });
 
   const examInput = document.querySelector("#exam-answer");
@@ -844,9 +870,13 @@ function setupCanvas() {
   document.querySelector('[data-action="finish-hand"]').addEventListener("click", () => {
     const result = document.querySelector("#handwriting-result");
     if (!result) return;
-    result.innerHTML = `<div class="handwriting-review"><span aria-hidden="true">👀</span><div><strong>¡Muy bien! Compara tu frase con el modelo:</strong><small>${escapeHtml(lessons[state.lessonIndex].english)}</small></div><div class="review-actions"><button data-review="again">✏️ Seguir escribiendo</button><button class="review-confirm" data-review="done">✅ Sí, terminé</button></div></div>`;
-    result.querySelector('[data-review="again"]').addEventListener("click", () => { result.innerHTML = ""; });
-    result.querySelector('[data-review="done"]').addEventListener("click", () => awardSuccess("Beautiful writing", "Qué bonita escritura", "handwriting"));
+    result.innerHTML = `<div class="adult-review"><span aria-hidden="true">👨‍👩‍👧</span><div><p>SOLO PARA ADULTOS</p><strong>Isabelle, ahora dale el iPad a un adulto para que revise tu respuesta.</strong><small>El adulto debe compararla con: ${escapeHtml(lessons[state.lessonIndex].english)}</small></div><div class="review-actions"><button data-review="practice">✏️ Necesita practicar</button><button class="review-confirm" data-review="correct">✅ Está correcta</button></div></div>`;
+    speak(`${CHILD_NAME}, ahora dale el iPad a un adulto para que revise tu respuesta.`, "es-MX");
+    result.querySelector('[data-review="practice"]').addEventListener("click", () => {
+      result.innerHTML = `<div class="adult-review compact"><span aria-hidden="true">🌱</span><div><strong>¡Está bien! Sigue practicando un poquito más.</strong></div></div>`;
+      speak("Está bien. Vamos a practicar un poquito más.", "es-MX");
+    });
+    result.querySelector('[data-review="correct"]').addEventListener("click", () => awardSuccess("Beautiful writing", "Qué bonita escritura", "handwriting"));
   });
 
   const blockSelection = (event) => event.preventDefault();
