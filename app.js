@@ -1,4 +1,4 @@
-const APP_VERSION = "1.9.3";
+const APP_VERSION = "1.10.0";
 const CHILD_NAME = "Isabelle";
 
 const lessons = [
@@ -277,6 +277,24 @@ function speakBilingual(english, spanish) {
   speechSynthesis.speak(makeUtterance(`${name}!`, "es-MX", 0.88));
 }
 
+function lessonWords(lesson) {
+  return lesson.english.match(/[A-Za-z]+(?:['’][A-Za-z]+)?/g) || [];
+}
+
+function speakPracticeWord(word, button) {
+  if (!("speechSynthesis" in window)) return;
+  cancelActiveRecognition();
+  speechSynthesis.cancel();
+  document.querySelectorAll(".word-chip.is-speaking").forEach((chip) => chip.classList.remove("is-speaking"));
+  const useSpanishName = normalize(word) === "isabelle";
+  const message = makeUtterance(word, useSpanishName ? "es-MX" : "en-US", 0.72);
+  const finish = () => button?.classList.remove("is-speaking");
+  message.onstart = () => button?.classList.add("is-speaking");
+  message.onend = finish;
+  message.onerror = finish;
+  speechSynthesis.speak(message);
+}
+
 function markPracticed(index) {
   if (!state.completed.includes(index)) state.completed = [...state.completed, index];
   save();
@@ -367,7 +385,11 @@ function modeContent(lesson) {
       <button class="primary" data-action="hear-en"><span aria-hidden="true">🔊</span> Escuchar inglés</button>
       <button class="secondary" data-action="hear-es"><span aria-hidden="true">🇵🇷</span> En español</button>
       <button class="text-button" data-action="sound">¿Cómo se pronuncia?</button>
-    </div>`;
+    </div>
+    <section class="word-by-word" aria-label="Practicar palabra por palabra">
+      <div class="word-by-word-heading"><span aria-hidden="true">🧩</span><div><strong>Palabra por palabra</strong><small>Toca una palabra para escucharla despacio.</small></div></div>
+      <div class="word-chips">${lessonWords(lesson).map((word, index) => `${index ? `<span class="word-divider" aria-hidden="true">−</span>` : ""}<button class="word-chip" data-action="hear-word" data-index="${index}" aria-label="Escuchar ${escapeHtml(word)}"><span aria-hidden="true">🔊</span>${escapeHtml(word)}</button>`).join("")}</div>
+    </section>`;
 
   if (state.mode === "write") return `
     <div class="writing-zone">
@@ -810,6 +832,7 @@ function bindEvents() {
     if (action === "mode") { state.mode = button.dataset.value; resetLessonState(); if (state.mode === "quiz") state.quizOptions = makeQuizOptions(state.lessonIndex); render(); }
     if (action === "hear-en") { if (state.speechStatus === "listening") { cancelActiveRecognition(); state.speechStatus = "idle"; } speak(lesson.english, "en-US"); markPracticed(state.lessonIndex); checkNewAchievements(); save(); render(); }
     if (action === "hear-es") speak(lesson.spanish, "es-MX");
+    if (action === "hear-word") speakPracticeWord(lessonWords(lesson)[Number(button.dataset.index)], button);
     if (action === "sound") { state.showSound = !state.showSound; render(); }
     if (action === "prev") goToLesson(state.lessonIndex - 1);
     if (action === "next") goToLesson(state.lessonIndex + 1);

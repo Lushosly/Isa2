@@ -109,6 +109,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .sound-hint { width: fit-content; display: flex; align-items: center; gap: 10px; padding: 9px 13px; margin-bottom: 12px; background: var(--accent-soft); border-radius: 14px; }
 .sound-hint > span { font-size: 23px; }.sound-hint div { display: flex; flex-direction: column; }.sound-hint small { color: var(--muted); }.sound-hint strong { color: var(--accent); font-size: 15px; margin-top: 2px; }
 .listen-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.word-by-word { margin-top: 18px; padding: 14px; border: 2px solid color-mix(in srgb, var(--accent) 13%, white); border-radius: 18px; background: linear-gradient(145deg, color-mix(in srgb, var(--accent-soft) 52%, white), white); }
+.word-by-word-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; }.word-by-word-heading > span { font-size: 25px; }.word-by-word-heading > div { display: flex; flex-direction: column; }.word-by-word-heading strong { color: var(--accent); font-size: 14px; }.word-by-word-heading small { margin-top: 2px; color: var(--muted); font-size: 11px; font-weight: 750; }
+.word-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.word-divider { color: color-mix(in srgb, var(--accent) 45%, #aaa); font-weight: 950; }
+.word-chip { min-height: 42px; padding: 7px 11px; border: 2px solid color-mix(in srgb, var(--accent) 18%, white); border-radius: 13px; color: var(--ink); background: white; box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 13%, #ddd); font-size: 14px; font-weight: 900; cursor: pointer; transition: transform .15s ease, background .15s ease, color .15s ease; }
+.word-chip > span { margin-right: 5px; font-size: 12px; }.word-chip:active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 18%, #ccc); }.word-chip.is-speaking { color: white; background: var(--accent); transform: translateY(-2px) scale(1.04); animation: word-pop .55s ease-in-out infinite alternate; }
+@keyframes word-pop { to { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 15%, transparent); } }
 .primary, .secondary, .hint-button, .quiz-options button, .tiny-mission button { min-height: 50px; padding: 0 19px; border-radius: 15px; border: 0; font-weight: 900; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
 .primary { background: var(--accent, var(--purple)); color: white; box-shadow: 0 5px 0 color-mix(in srgb, var(--accent, var(--purple)) 75%, black); }
 .primary:active, .tiny-mission button:active { transform: translateY(3px); box-shadow: 0 2px 0 color-mix(in srgb, var(--accent, var(--purple)) 75%, black); }
@@ -289,6 +296,7 @@ footer { padding: 34px 0 10px; text-align: center; color: var(--muted); } footer
   .welcome { padding-left: 18px; padding-top: 80px; }.welcome-rainbow { top: 3px; bottom: auto; left: 16px; width: 73px; height: 73px; }.welcome h1 { font-size: 29px; }.welcome::after { right: -25px; top: -22px; bottom: auto; }
   .mode-tabs button { font-size: 13px; }.mode-tabs button span { display: block; margin-bottom: 2px; }
   .lesson-content h2 { font-size: 30px; }.listen-actions .primary, .listen-actions .secondary { flex: 1 1 45%; padding: 0 10px; }
+  .word-by-word { padding: 12px; }.word-chips { gap: 6px; }.word-chip { min-height: 40px; padding-inline: 9px; font-size: 13px; }.word-divider { font-size: 12px; }
   .writing-help { flex-direction: column; }.writing-help button { width: 100%; }
   .writing-style-tabs { grid-template-columns: 1fr; }
   .handwriting-focus-header { align-items: flex-start; }.expand-writing { min-width: 130px; }
