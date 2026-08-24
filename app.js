@@ -1,3 +1,5 @@
+const APP_VERSION = "1.4.1";
+
 const lessons = [
   { emoji: "👋", label: "Mi nombre", english: "My name is Isabelle.", spanish: "Me llamo Isabelle.", answer: "my name is isabelle", sound: "mai NEIM iz I-sa-BEL", color: "violet" },
   { emoji: "🎨", label: "Color favorito", english: "My favorite color is purple.", spanish: "Mi color favorito es morado.", answer: "my favorite color is purple", sound: "mai FEI-vrit KÁ-ler iz PÉR-pol", color: "purple" },
@@ -243,7 +245,7 @@ function render() {
           <div class="mission-actions"><button data-action="mission-listen">🔊 Escuchar una vez</button><button class="mission-complete" data-action="mission-complete" ${missionDone ? "disabled" : ""}>${missionDone ? "✓ Completada" : "✅ ¡La dije!"}</button></div>
         </div>` : ""}
       </section>
-      <footer><p>Hecho con 💜 para aprender en familia</p><small>La voz y el progreso se quedan en este dispositivo.</small></footer>
+      <footer><p>Hecho con 💜 para aprender en familia</p><small>La voz y el progreso se quedan en este dispositivo. · Versión ${APP_VERSION}</small></footer>
 
       ${state.achievementsOpen ? `<div class="modal-backdrop" data-action="close-modal"><section class="achievement-modal" role="dialog" aria-modal="true" aria-labelledby="achievement-title"><button class="close" data-action="close-modal" aria-label="Cerrar">×</button><span class="big-medal" aria-hidden="true">🏅</span><h2 id="achievement-title">Mis logros</h2><p>Cada intento cuenta. ¡Sigue explorando!</p><div class="achievement-grid">${achievements().map((item) => `<article class="${item.earned ? "earned" : "locked"}"><span>${item.earned ? item.icon : "🔒"}</span><strong>${item.name}</strong><small>${item.earned ? "¡Conseguido!" : "Sigue practicando"}</small></article>`).join("")}</div><button class="primary full" data-action="close-modal">¡Vamos a practicar!</button><button class="reset-button" data-action="reset">↻ Reiniciar todo el progreso</button></section></div>` : ""}
     </main>`;

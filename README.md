@@ -24,6 +24,18 @@ Aplicación bilingüe para iPad creada para practicar las frases del examen de I
 
 No hay proceso de compilación ni dependencias que instalar.
 
+### Si GitHub muestra la versión anterior
+
+Esta entrega muestra **Versión 1.4.1** al final de la página. Si no aparece:
+
+1. Confirma que `index.html`, `app.js`, `styles.css` y la carpeta `assets` estén directamente en la raíz del repositorio, no dentro de otra carpeta.
+2. En **Settings → Pages**, selecciona **Deploy from a branch**, la rama `main` y la carpeta `/(root)`.
+3. Abre la pestaña **Actions** y espera a que `pages build and deployment` termine con una marca verde.
+4. En el iPad, abre la dirección agregando `?v=141` al final. Por ejemplo: `https://usuario.github.io/repositorio/?v=141`.
+5. Si la guardaste en la pantalla de inicio, elimina ese acceso y vuelve a añadirlo después de ver **Versión 1.4.1** en Safari.
+
+Los enlaces a `app.js` y `styles.css` incluyen un número de versión para evitar que Safari reutilice archivos antiguos.
+
 ## Usar como una app en iPad
 
 Abre el enlace en Safari y selecciona **Compartir → Añadir a pantalla de inicio**.
