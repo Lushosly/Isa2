@@ -4,11 +4,12 @@ Aplicación bilingüe para iPad creada para practicar las frases del examen de I
 
 ## Incluye
 
-- Pronunciación en inglés y español con las voces del dispositivo.
+- Voz femenina en inglés cuando está disponible y español latinoamericano.
 - Frases y traducciones del material de estudio.
 - Escritura con teclado y comprobación de respuestas.
 - Cuaderno para escribir con el dedo o Apple Pencil.
 - Retos, estrellas, logros y progreso guardado en el dispositivo.
+- Misión familiar guiada que se puede completar.
 - Sin Google Translate API, sin OpenAI API y sin claves secretas.
 
 ## Publicar con GitHub Pages
@@ -26,6 +27,10 @@ No hay proceso de compilación ni dependencias que instalar.
 ## Usar como una app en iPad
 
 Abre el enlace en Safari y selecciona **Compartir → Añadir a pantalla de inicio**.
+
+## Reiniciar las pruebas
+
+Abre **Mis logros** y pulsa **Reiniciar todo el progreso**. Después de confirmar, se borran estrellas, logros, respuestas y misiones guardadas en ese dispositivo.
 
 ## Privacidad
 

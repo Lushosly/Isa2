@@ -115,8 +115,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .writing-paper { position: relative; width: 100%; height: 230px; overflow: hidden; border: 3px solid var(--accent-soft); border-radius: 17px; background:
   linear-gradient(90deg, transparent 42px, rgba(255, 125, 117, .28) 43px, transparent 44px),
   repeating-linear-gradient(0deg, #fff 0 37px, rgba(78, 115, 185, .16) 38px, #fff 39px 40px); }
+.writing-paper, .writing-paper * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 .trace-text { position: absolute; inset: 15px 18px 12px 53px; display: grid; place-items: center; color: color-mix(in srgb, var(--accent) 21%, transparent); font-size: clamp(29px, 4vw, 42px); font-weight: 900; line-height: 1.25; text-align: center; letter-spacing: .3px; }
-.writing-paper canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.writing-paper canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; overscroll-behavior: contain; cursor: crosshair; }
 .handwriting-actions { margin-top: 9px; }
 .quiz-options { display: grid; gap: 9px; margin-top: 19px; }
 .quiz-options button { min-height: 53px; height: auto; padding: 10px 16px; text-align: left; color: var(--ink); background: white; border: 2px solid #e8e2f2; }
@@ -131,6 +132,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .tiny-mission div:nth-child(2) span { color: var(--yellow); font-size: 11px; letter-spacing: 1.4px; font-weight: 900; }
 .tiny-mission h2 { margin: 4px 0; font-size: 21px; }.tiny-mission p { margin: 0; color: #c8c8df; font-size: 14px; }
 .tiny-mission button { color: #302354; background: var(--yellow); box-shadow: 0 5px 0 #dba923; }
+.mission-panel { grid-column: 1 / -1; padding: 18px; border: 1px solid rgba(255,255,255,.16); border-radius: 20px; background: rgba(255,255,255,.08); }
+.mission-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.mission-steps li { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 10px; border-radius: 14px; background: rgba(255,255,255,.09); }
+.mission-steps li > span { grid-row: 1 / 3; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #302354; background: var(--yellow); font-weight: 900; }
+.mission-steps strong { font-size: 13px; }.mission-steps small { color: #c8c8df; font-size: 11px; }
+.mission-panel blockquote { margin: 14px 0; padding: 12px 15px; border-left: 4px solid var(--aqua); border-radius: 10px; background: rgba(0,0,0,.12); font-size: 20px; font-weight: 900; }
+.mission-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.mission-actions button { min-height: 44px; box-shadow: none; }
+.mission-actions .mission-complete { color: white; background: #31a77c; }
+.mission-actions .mission-complete:disabled { opacity: .58; cursor: default; }
 footer { padding: 34px 0 10px; text-align: center; color: var(--muted); } footer p { margin: 0 0 4px; font-weight: 800; } footer small { font-size: 12px; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgba(29, 27, 64, .62); backdrop-filter: blur(8px); }
@@ -141,6 +152,7 @@ footer { padding: 34px 0 10px; text-align: center; color: var(--muted); } footer
 .achievement-grid article { display: grid; grid-template-columns: 47px 1fr; grid-template-rows: auto auto; column-gap: 11px; padding: 15px; border-radius: 18px; background: white; border: 1px solid #eee8f7; }
 .achievement-grid article > span { grid-row: 1 / 3; align-self: center; font-size: 31px; }.achievement-grid strong { align-self: end; font-size: 14px; }.achievement-grid small { color: var(--muted); }
 .achievement-grid .locked { filter: grayscale(1); opacity: .55; }.full { width: 100%; margin-top: 20px; --accent: var(--purple); }
+.reset-button { margin-top: 18px; padding: 10px 14px; border: 0; background: transparent; color: #a33c4e; font-size: 13px; font-weight: 850; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 @media (max-width: 760px) {
   .app-shell { padding-inline: 16px; }
@@ -154,6 +166,7 @@ footer { padding: 34px 0 10px; text-align: center; color: var(--muted); } footer
   .lesson-visual { min-height: 220px; }.lesson-visual > span { width: 130px; height: 130px; font-size: 78px; }.lesson-visual::before { width: 150px; height: 150px; }.lesson-visual::after { width: 180px; height: 180px; }.lesson-visual small { bottom: 12px; }
   .lesson-content { min-height: 390px; padding: 28px 23px 22px; }
   .tiny-mission { grid-template-columns: 85px 1fr; }.tiny-mission button { grid-column: 1 / 3; }.mascot-wrap { height: 83px; }
+  .mission-steps { grid-template-columns: 1fr; }.mission-actions { display: grid; grid-template-columns: 1fr 1fr; }.mission-actions button { grid-column: auto; }
 }
 
 @media (max-width: 460px) {

@@ -24,6 +24,8 @@ let state = {
   childName: "Isabelle",
   achievementsOpen: false,
   writingStyle: "keyboard",
+  familyMissions: [],
+  missionOpen: false,
 };
 
 try {
@@ -32,13 +34,14 @@ try {
     state.completed = Array.isArray(stored.completed) ? stored.completed : [];
     state.stars = Number.isFinite(stored.stars) ? stored.stars : 0;
     state.childName = stored.childName && stored.childName !== "exploradora" ? stored.childName : "Isabelle";
+    state.familyMissions = Array.isArray(stored.familyMissions) ? stored.familyMissions : [];
   }
 } catch {
   // Start a fresh local adventure when saved progress cannot be read.
 }
 
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ completed: state.completed, stars: state.stars, childName: state.childName }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ completed: state.completed, stars: state.stars, childName: state.childName, familyMissions: state.familyMissions }));
 }
 
 function escapeHtml(value) {
@@ -50,7 +53,24 @@ function normalize(value) {
 }
 
 function voiceFor(language) {
-  return speechSynthesis.getVoices().find((voice) => voice.lang.toLowerCase().startsWith(language.slice(0, 2).toLowerCase()));
+  const voices = speechSynthesis.getVoices();
+  const isEnglish = language.toLowerCase().startsWith("en");
+  const preferredNames = isEnglish
+    ? ["samantha", "ava", "allison", "susan", "victoria", "zoe", "karen", "tessa", "moira", "fiona"]
+    : ["paulina", "ximena", "valentina", "camila", "marisol", "paloma", "monica", "mónica"];
+  const localeOrder = isEnglish
+    ? ["en-us", "en-ca", "en-au", "en-gb", "en"]
+    : ["es-mx", "es-us", "es-419", "es-pr", "es-co", "es-ar", "es-cl", "es-pe", "es-ve", "es"];
+
+  for (const locale of localeOrder) {
+    const matchingLocale = voices.filter((voice) => voice.lang.toLowerCase() === locale || (locale.length === 2 && voice.lang.toLowerCase().startsWith(`${locale}-`)));
+    const preferred = matchingLocale.find((voice) => preferredNames.some((name) => voice.name.toLowerCase().includes(name)));
+    if (preferred) return preferred;
+  }
+
+  // Leaving the voice unset is safer than selecting an arbitrary male voice.
+  // iPadOS will use its female default for en-US and es-MX when available.
+  return undefined;
 }
 
 function makeUtterance(text, language, rate = 0.8) {
@@ -74,7 +94,7 @@ function queueWithSpanishName(text, language, name, rate = 0.8) {
     const before = text.slice(0, match.index).trim();
     const after = text.slice(match.index + match.candidate.length).replace(/^[,\s]+/, "").trim();
     if (before) speechSynthesis.speak(makeUtterance(before, "en-US", rate));
-    speechSynthesis.speak(makeUtterance(match.candidate, "es-ES", rate));
+    speechSynthesis.speak(makeUtterance(match.candidate, "es-MX", rate));
     if (after && !/^[.!?]+$/.test(after)) speechSynthesis.speak(makeUtterance(after, "en-US", rate));
     return;
   }
@@ -93,8 +113,8 @@ function speakBilingual(english, spanish) {
   const name = state.childName.trim() || "Isabelle";
   speechSynthesis.cancel();
   speechSynthesis.speak(makeUtterance(`${english}!`, "en-US", 0.82));
-  speechSynthesis.speak(makeUtterance(`${spanish},`, "es-ES", 0.82));
-  speechSynthesis.speak(makeUtterance(`${name}!`, "es-ES", 0.82));
+  speechSynthesis.speak(makeUtterance(`${spanish},`, "es-MX", 0.82));
+  speechSynthesis.speak(makeUtterance(`${name}!`, "es-MX", 0.82));
 }
 
 function markPracticed(index) {
@@ -188,6 +208,7 @@ function render() {
   const lesson = lessons[state.lessonIndex];
   const progress = Math.round((state.completed.length / lessons.length) * 100);
   const earned = achievements().filter((item) => item.earned).length;
+  const missionDone = state.familyMissions.includes(state.lessonIndex);
   const dots = lessons.map((_, index) => `<button data-action="lesson" data-index="${index}" class="${index === state.lessonIndex ? "current" : state.completed.includes(index) ? "done" : ""}" aria-label="Ir a frase ${index + 1}"></button>`).join("");
 
   document.querySelector("#app").innerHTML = `
@@ -212,10 +233,19 @@ function render() {
         <div class="lesson-content"><p class="lesson-label">${lesson.label}</p>${modeContent(lesson)}${feedbackHtml()}<div class="card-nav"><button data-action="prev" aria-label="Frase anterior">←</button><div>${dots}</div><button data-action="next" aria-label="Frase siguiente">→</button></div></div>
       </section>
 
-      <section class="tiny-mission"><div class="mascot-wrap"><img src="assets/og.png" alt="Colibrí explorador de Aventura de Inglés" /></div><div><span>MISIÓN EXTRA</span><h2>Dile la frase a alguien de tu familia</h2><p>¡Enseñar también ayuda a aprender!</p></div><button data-action="practice">Practicar <span aria-hidden="true">→</span></button></section>
+      <section class="tiny-mission ${state.missionOpen ? "mission-open" : ""}">
+        <div class="mascot-wrap"><img src="assets/og.png" alt="Colibrí explorador de Aventura de Inglés" /></div>
+        <div><span>MISIÓN EXTRA</span><h2>Dile la frase a alguien de tu familia</h2><p>${missionDone ? "¡Misión completada! Puedes repetirla." : "Escucha, mira a alguien y di la frase tú."}</p></div>
+        <button data-action="start-mission">${state.missionOpen ? "Cerrar" : missionDone ? "Repetir misión" : "Empezar misión"} <span aria-hidden="true">→</span></button>
+        ${state.missionOpen ? `<div class="mission-panel">
+          <ol class="mission-steps"><li><span>1</span><strong>Escucha</strong><small>Hear it</small></li><li><span>2</span><strong>Mira a alguien</strong><small>Look at someone</small></li><li><span>3</span><strong>Di la frase</strong><small>Say it yourself</small></li></ol>
+          <blockquote>${escapeHtml(lesson.english)}</blockquote>
+          <div class="mission-actions"><button data-action="mission-listen">🔊 Escuchar una vez</button><button class="mission-complete" data-action="mission-complete" ${missionDone ? "disabled" : ""}>${missionDone ? "✓ Completada" : "✅ ¡La dije!"}</button></div>
+        </div>` : ""}
+      </section>
       <footer><p>Hecho con 💜 para aprender en familia</p><small>La voz y el progreso se quedan en este dispositivo.</small></footer>
 
-      ${state.achievementsOpen ? `<div class="modal-backdrop" data-action="close-modal"><section class="achievement-modal" role="dialog" aria-modal="true" aria-labelledby="achievement-title"><button class="close" data-action="close-modal" aria-label="Cerrar">×</button><span class="big-medal" aria-hidden="true">🏅</span><h2 id="achievement-title">Mis logros</h2><p>Cada intento cuenta. ¡Sigue explorando!</p><div class="achievement-grid">${achievements().map((item) => `<article class="${item.earned ? "earned" : "locked"}"><span>${item.earned ? item.icon : "🔒"}</span><strong>${item.name}</strong><small>${item.earned ? "¡Conseguido!" : "Sigue practicando"}</small></article>`).join("")}</div><button class="primary full" data-action="close-modal">¡Vamos a practicar!</button></section></div>` : ""}
+      ${state.achievementsOpen ? `<div class="modal-backdrop" data-action="close-modal"><section class="achievement-modal" role="dialog" aria-modal="true" aria-labelledby="achievement-title"><button class="close" data-action="close-modal" aria-label="Cerrar">×</button><span class="big-medal" aria-hidden="true">🏅</span><h2 id="achievement-title">Mis logros</h2><p>Cada intento cuenta. ¡Sigue explorando!</p><div class="achievement-grid">${achievements().map((item) => `<article class="${item.earned ? "earned" : "locked"}"><span>${item.earned ? item.icon : "🔒"}</span><strong>${item.name}</strong><small>${item.earned ? "¡Conseguido!" : "Sigue practicando"}</small></article>`).join("")}</div><button class="primary full" data-action="close-modal">¡Vamos a practicar!</button><button class="reset-button" data-action="reset">↻ Reiniciar todo el progreso</button></section></div>` : ""}
     </main>`;
 
   bindEvents();
@@ -226,6 +256,31 @@ function resetLessonState() {
   state.answer = "";
   state.feedback = "idle";
   state.showSound = false;
+  state.missionOpen = false;
+}
+
+function resetAllProgress() {
+  const confirmed = window.confirm("¿Quieres borrar todas las estrellas, logros, misiones y progreso de prueba?");
+  if (!confirmed) return;
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  localStorage.removeItem(STORAGE_KEY);
+  state = {
+    mode: "learn",
+    lessonIndex: 0,
+    completed: [],
+    stars: 0,
+    answer: "",
+    feedback: "idle",
+    showSound: false,
+    quizOptions: [0, 3, 6],
+    childName: "Isabelle",
+    achievementsOpen: false,
+    writingStyle: "keyboard",
+    familyMissions: [],
+    missionOpen: false,
+  };
+  save();
+  render();
 }
 
 function goToLesson(index) {
@@ -244,12 +299,26 @@ function bindEvents() {
     if (action === "close-modal") { if (event.target === button || button.tagName === "BUTTON") { state.achievementsOpen = false; render(); } }
     if (action === "mode") { state.mode = button.dataset.value; resetLessonState(); if (state.mode === "quiz") state.quizOptions = makeQuizOptions(state.lessonIndex); render(); }
     if (action === "hear-en") { speak(lesson.english, "en-US"); markPracticed(state.lessonIndex); render(); }
-    if (action === "hear-es") speak(lesson.spanish, "es-ES");
+    if (action === "hear-es") speak(lesson.spanish, "es-MX");
     if (action === "sound") { state.showSound = !state.showSound; render(); }
     if (action === "prev") goToLesson(state.lessonIndex - 1);
     if (action === "next") goToLesson(state.lessonIndex + 1);
     if (action === "lesson") goToLesson(Number(button.dataset.index));
-    if (action === "practice") speak(lesson.english, "en-US");
+    if (action === "start-mission") {
+      state.missionOpen = !state.missionOpen;
+      if (state.missionOpen) speak(lesson.english, "en-US");
+      render();
+    }
+    if (action === "mission-listen") speak(lesson.english, "en-US");
+    if (action === "mission-complete" && !state.familyMissions.includes(state.lessonIndex)) {
+      state.familyMissions = [...state.familyMissions, state.lessonIndex];
+      state.stars += 1;
+      markPracticed(state.lessonIndex);
+      speakBilingual("Mission complete", "Misión cumplida");
+      save();
+      render();
+    }
+    if (action === "reset") resetAllProgress();
     if (action === "writing-style") { state.writingStyle = button.dataset.value; state.feedback = "idle"; render(); }
     if (action === "hint") { state.answer = lesson.answer.slice(0, Math.max(2, Math.ceil(lesson.answer.length * 0.35))); render(); }
     if (action === "check") {
@@ -305,6 +374,7 @@ function setupCanvas() {
   };
   canvas.addEventListener("pointerdown", (event) => {
     event.preventDefault();
+    document.getSelection()?.removeAllRanges();
     canvas.setPointerCapture(event.pointerId);
     drawing = true;
     const context = canvas.getContext("2d");
