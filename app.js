@@ -1,4 +1,4 @@
-const APP_VERSION = "1.9.0";
+const APP_VERSION = "1.9.1";
 const CHILD_NAME = "Isabelle";
 
 const lessons = [
@@ -142,8 +142,8 @@ function voiceFor(language) {
   const voices = speechSynthesis.getVoices();
   const isEnglish = language.toLowerCase().startsWith("en");
   const preferredNames = isEnglish
-    ? ["samantha", "ava", "allison", "susan", "victoria", "zoe", "karen", "tessa", "moira", "fiona"]
-    : ["paulina", "ximena", "valentina", "camila", "marisol", "paloma", "monica", "mónica"];
+    ? ["samantha", "ava", "allison", "susan", "victoria", "zoe", "karen", "tessa", "moira", "fiona", "serena"]
+    : ["paulina", "ximena", "valentina", "camila", "marisol", "paloma", "monica", "mónica", "angelica", "angélica", "soledad", "luciana", "francisca"];
   const localeOrder = isEnglish
     ? ["en-us", "en-ca", "en-au", "en-gb", "en"]
     : ["es-mx", "es-us", "es-419", "es-pr", "es-co", "es-ar", "es-cl", "es-pe", "es-ve", "es"];
@@ -153,7 +153,13 @@ function voiceFor(language) {
     const preferred = matchingLocale
       .filter((voice) => preferredNames.some((name) => voice.name.toLowerCase().includes(name)))
       .sort((left, right) => {
-        const quality = (voice) => /premium|enhanced|natural|neural/.test(voice.name.toLowerCase()) ? 100 : 0;
+        const quality = (voice) => {
+          const name = voice.name.toLowerCase();
+          const preferredIndex = preferredNames.findIndex((candidate) => name.includes(candidate));
+          const qualityPoints = /premium/.test(name) ? 500 : /enhanced/.test(name) ? 420 : /natural|neural/.test(name) ? 360 : 0;
+          const preferredPoints = preferredIndex >= 0 ? 200 - preferredIndex : 0;
+          return qualityPoints + preferredPoints + (voice.localService ? 20 : 0) + (voice.default ? 5 : 0);
+        };
         return quality(right) - quality(left);
       })[0];
     if (preferred) return preferred;
@@ -164,17 +170,17 @@ function voiceFor(language) {
   return undefined;
 }
 
-function makeUtterance(text, language, rate = 0.8) {
+function makeUtterance(text, language, rate = 0.86) {
   const message = new SpeechSynthesisUtterance(text);
   message.lang = language;
   message.rate = rate;
-  message.pitch = 1.02;
+  message.pitch = 1;
   const voice = voiceFor(language);
   if (voice) message.voice = voice;
   return message;
 }
 
-function queueWithSpanishName(text, language, name, rate = 0.8) {
+function queueWithSpanishName(text, language, name, rate = 0.86) {
   const spokenName = (name || "Isabelle").trim() || "Isabelle";
   const match = [spokenName, "Isabelle"]
     .map((candidate) => ({ candidate, index: text.toLowerCase().indexOf(candidate.toLowerCase()) }))
@@ -203,9 +209,9 @@ function speakBilingual(english, spanish) {
   if (!("speechSynthesis" in window)) return;
   const name = state.childName.trim() || "Isabelle";
   speechSynthesis.cancel();
-  speechSynthesis.speak(makeUtterance(`${english}!`, "en-US", 0.82));
-  speechSynthesis.speak(makeUtterance(`${spanish},`, "es-MX", 0.82));
-  speechSynthesis.speak(makeUtterance(`${name}!`, "es-MX", 0.82));
+  speechSynthesis.speak(makeUtterance(`${english}!`, "en-US", 0.88));
+  speechSynthesis.speak(makeUtterance(`${spanish},`, "es-MX", 0.88));
+  speechSynthesis.speak(makeUtterance(`${name}!`, "es-MX", 0.88));
 }
 
 function markPracticed(index) {
@@ -296,7 +302,7 @@ function modeContent(lesson) {
     ${state.showSound ? `<div class="sound-hint"><span>👄</span><div><small>Suena parecido a</small><strong>${escapeHtml(lesson.sound)}</strong></div></div>` : ""}
     <div class="listen-actions">
       <button class="primary" data-action="hear-en"><span aria-hidden="true">🔊</span> Escuchar inglés</button>
-      <button class="secondary" data-action="hear-es"><span aria-hidden="true">🇪🇸</span> En español</button>
+      <button class="secondary" data-action="hear-es"><span aria-hidden="true">🇵🇷</span> En español</button>
       <button class="text-button" data-action="sound">¿Cómo se pronuncia?</button>
     </div>`;
 
