@@ -1,4 +1,4 @@
-const APP_VERSION = "1.9.2";
+const APP_VERSION = "1.9.3";
 const CHILD_NAME = "Isabelle";
 
 const lessons = [
@@ -121,15 +121,27 @@ function phraseWasUnderstood(transcripts, lesson) {
   const expected = [lesson.answer];
   if (lessonIndex === 0) expected.push("my name is isabel");
   if (lessonIndex === 4) expected.push("i am six years old");
-  return transcripts.some((spoken) => expected.some((answer) => {
-    const normalizedSpoken = normalize(spoken).replace(/\bfavourite\b/g, "favorite");
-    const normalizedAnswer = normalize(answer).replace(/\bfavourite\b/g, "favorite");
-    const expectedWords = normalizedAnswer.split(" ").filter((word) => word.length > 1);
-    const spokenWords = normalizedSpoken.split(" ");
-    const understoodWords = expectedWords.filter((word) => spokenWords.some((heard) => similarity(word, heard) >= 0.72));
-    const wordCoverage = understoodWords.length / Math.max(expectedWords.length, 1);
-    return similarity(normalizedSpoken, normalizedAnswer) >= 0.68 || wordCoverage >= 0.75;
-  }));
+  const primaryTranscript = transcripts[0] || "";
+  return expected.some((answer) => {
+    const speechText = (value) => normalize(value)
+      .replace(/\bfavourite\b/g, "favorite")
+      .replace(/\bi'm\b/g, "i am");
+    const normalizedSpoken = speechText(primaryTranscript);
+    const normalizedAnswer = speechText(answer);
+    const expectedWords = normalizedAnswer.split(" ").filter(Boolean);
+    const spokenWords = normalizedSpoken.split(" ").filter(Boolean);
+
+    // A complete phrase is required. Matching words out of order or omitting
+    // the important final answer (purple, soccer, Isabelle, etc.) must not pass.
+    if (!normalizedSpoken || spokenWords.length !== expectedWords.length) return false;
+    const wordScores = expectedWords.map((word, index) => similarity(spokenWords[index], word));
+    const averageWordScore = wordScores.reduce((sum, score) => sum + score, 0) / wordScores.length;
+    const finalWordScore = wordScores[wordScores.length - 1];
+    return similarity(normalizedSpoken, normalizedAnswer) >= 0.82
+      && averageWordScore >= 0.87
+      && Math.min(...wordScores) >= 0.7
+      && finalWordScore >= 0.78;
+  });
 }
 
 function writtenAnswerIsCorrect(value, index) {
@@ -415,7 +427,7 @@ function modeContent(lesson) {
         <div class="speech-actions"><button class="secondary" data-action="hear-en">🔊 Escuchar una pista</button><button class="mic-button ${state.speechStatus === "listening" ? "listening" : ""}" data-action="${state.speechStatus === "listening" ? "stop-speech" : "speak-challenge"}">${state.speechStatus === "listening" ? "⏹ Detener escucha" : "🎤 Hablar ahora"}</button></div>
         ${state.speechTranscript ? `<p class="heard-text"><strong>Escuché:</strong> “${escapeHtml(state.speechTranscript)}”</p>` : ""}
         ${state.speechMessage ? `<p class="speech-message">${escapeHtml(state.speechMessage)}</p>` : ""}
-        <small>El reto acepta pequeñas diferencias de pronunciación. Comprueba las palabras entendidas, no califica el acento profesionalmente.</small>
+        <small>Debe decir la frase completa. Acepta pequeñas diferencias de pronunciación, pero no palabras faltantes. Comprueba las palabras entendidas; no califica el acento profesionalmente.</small>
       </section>` : `
       <p class="write-prompt">Toca la frase que significa:</p>
       <h2>${escapeHtml(lesson.spanish)}</h2>
@@ -544,7 +556,7 @@ function startExamSpeech() {
   recognition.lang = "en-US";
   recognition.continuous = false;
   recognition.interimResults = false;
-  recognition.maxAlternatives = 5;
+  recognition.maxAlternatives = 1;
   state.examStatus = "listening";
   state.examMessage = "Habla ahora, despacio y cerca del iPad. La escucha se detiene sola.";
   render();
@@ -715,7 +727,7 @@ function startSpeechChallenge() {
   recognition.lang = "en-US";
   recognition.continuous = false;
   recognition.interimResults = false;
-  recognition.maxAlternatives = 5;
+  recognition.maxAlternatives = 1;
   state.speechStatus = "listening";
   state.speechTranscript = "";
   state.speechMessage = "Habla ahora, despacio y cerca del iPad. La escucha se detiene sola.";
