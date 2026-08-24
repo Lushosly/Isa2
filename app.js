@@ -63,18 +63,38 @@ function makeUtterance(text, language, rate = 0.8) {
   return message;
 }
 
-function speak(text, language) {
+function queueWithSpanishName(text, language, name, rate = 0.8) {
+  const spokenName = (name || "Isabelle").trim() || "Isabelle";
+  const match = [spokenName, "Isabelle"]
+    .map((candidate) => ({ candidate, index: text.toLowerCase().indexOf(candidate.toLowerCase()) }))
+    .filter((item) => item.index >= 0)
+    .sort((a, b) => a.index - b.index)[0];
+
+  if (language === "en-US" && match) {
+    const before = text.slice(0, match.index).trim();
+    const after = text.slice(match.index + match.candidate.length).replace(/^[,\s]+/, "").trim();
+    if (before) speechSynthesis.speak(makeUtterance(before, "en-US", rate));
+    speechSynthesis.speak(makeUtterance(match.candidate, "es-ES", rate));
+    if (after && !/^[.!?]+$/.test(after)) speechSynthesis.speak(makeUtterance(after, "en-US", rate));
+    return;
+  }
+
+  speechSynthesis.speak(makeUtterance(text, language, rate));
+}
+
+function speak(text, language, name = state.childName) {
   if (!("speechSynthesis" in window)) return;
   speechSynthesis.cancel();
-  speechSynthesis.speak(makeUtterance(text.replace("…", ""), language));
+  queueWithSpanishName(text.replace("…", ""), language, name);
 }
 
 function speakBilingual(english, spanish) {
   if (!("speechSynthesis" in window)) return;
   const name = state.childName.trim() || "Isabelle";
   speechSynthesis.cancel();
-  speechSynthesis.speak(makeUtterance(`${english}, ${name}!`, "en-US", 0.82));
-  speechSynthesis.speak(makeUtterance(`${spanish}, ${name}!`, "es-ES", 0.82));
+  speechSynthesis.speak(makeUtterance(`${english}!`, "en-US", 0.82));
+  speechSynthesis.speak(makeUtterance(`${spanish},`, "es-ES", 0.82));
+  speechSynthesis.speak(makeUtterance(`${name}!`, "es-ES", 0.82));
 }
 
 function markPracticed(index) {
