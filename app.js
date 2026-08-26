@@ -1,4 +1,4 @@
-const APP_VERSION = "1.10.1";
+const APP_VERSION = "1.10.2";
 const CHILD_NAME = "Isabelle";
 
 const lessons = [
@@ -287,7 +287,10 @@ function speakPracticeWord(word, button) {
   speechSynthesis.cancel();
   document.querySelectorAll(".word-chip.is-speaking").forEach((chip) => chip.classList.remove("is-speaking"));
   const useSpanishName = normalize(word) === "isabelle";
-  const message = makeUtterance(word, useSpanishName ? "es-MX" : "en-US", 0.72);
+  // Some iPad voices announce a standalone "I" as "capital I". "Eye" has
+  // the same English pronunciation while the visible lesson still shows I.
+  const spokenWord = word === "I" ? "eye" : word;
+  const message = makeUtterance(spokenWord, useSpanishName ? "es-MX" : "en-US", 0.72);
   const finish = () => button?.classList.remove("is-speaking");
   message.onstart = () => button?.classList.add("is-speaking");
   message.onend = finish;
