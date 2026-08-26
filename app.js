@@ -1,4 +1,4 @@
-const APP_VERSION = "1.10.0";
+const APP_VERSION = "1.10.1";
 const CHILD_NAME = "Isabelle";
 
 const lessons = [
@@ -7,7 +7,7 @@ const lessons = [
   { emoji: "⚽", label: "Deporte favorito", english: "My favorite sport is soccer.", spanish: "Mi deporte favorito es el fútbol.", answer: "my favorite sport is soccer", sound: "mai FEI-vrit sport iz SÁ-ker", color: "green" },
   { emoji: "🍝", label: "Comida favorita", english: "My favorite food is pasta.", spanish: "Mi comida favorita es la pasta.", answer: "my favorite food is pasta", sound: "mai FEI-vrit fud iz PÁS-ta", color: "coral" },
   { emoji: "6️⃣", label: "Mi edad", english: "I’m six years old.", spanish: "Tengo seis años.", answer: "i'm six years old", sound: "aim SIKS yirs OULD", color: "yellow" },
-  { emoji: "🐾", label: "Cuando sea grande", english: "I want to be an animal rescuer.", spanish: "Quiero rescatar animales.", answer: "i want to be an animal rescuer", sound: "ai UÁNT tu bi an Á-ni-mal RÉS-kiu-er", color: "aqua" },
+  { emoji: "🐾", label: "Cuando sea grande", english: "When I grow up, I want to be an animal rescuer.", spanish: "Cuando sea grande, quiero ser rescatista de animales.", answer: "when i grow up i want to be an animal rescuer", sound: "UEN ai GROU áp, ai UÁNT tu bi an Á-ni-mal RÉS-kiu-er", color: "aqua" },
   { emoji: "➗", label: "Materia favorita", english: "My favorite subject is math.", spanish: "Mi materia favorita es matemáticas.", answer: "my favorite subject is math", sound: "mai FEI-vrit SÁB-yekt iz MÁTH", color: "blue" },
   { emoji: "📖", label: "Libro favorito", english: "My favorite book is Mother of Sharks.", spanish: "Mi libro favorito es Mother of Sharks.", answer: "my favorite book is mother of sharks", sound: "mai FEI-vrit buk iz MÁ-der ov SHARKS", color: "navy" },
   { emoji: "🐰", label: "Animal favorito", english: "My favorite animal is rabbits.", spanish: "Mi animal favorito son los conejos.", answer: "my favorite animal is rabbits", sound: "mai FEI-vrit Á-ni-mal iz RÁ-bits", color: "pink" },
