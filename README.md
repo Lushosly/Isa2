@@ -10,7 +10,8 @@ Aplicación infantil completamente en español para aprender los números del 1 
 - Práctica por partes para nombres como *treinta y cinco*.
 - Práctica de voz con transcripción visible, coincidencia exacta y recuperación automática del micrófono después de 15 segundos.
 - Escritura con teclado, pistas y comprobación que acepta respuestas sin tilde, pero siempre muestra la ortografía correcta.
-- Retos de cuatro opciones, estrellas, ocho logros y progreso guardado en el iPad.
+- Reto de voz: aparece un número sorpresa y Isabelle debe decir su nombre en español; muestra lo que Safari entendió y solo acepta ese número.
+- Estrellas, ocho logros y progreso guardado en el iPad.
 - Interfaz completamente en español latinoamericano.
 - Sin Google, OpenAI ni otros servicios de pago.
 
@@ -28,16 +29,16 @@ No hay dependencias ni proceso de compilación.
 
 ### Si Safari muestra una versión anterior
 
-Esta entrega muestra **Versión 1.0.0** al final. Si no aparece:
+Esta entrega muestra **Versión 1.1.0** al final. Si no aparece:
 
 1. Confirma que `index.html`, `app.js`, `styles.css` y `assets` estén en la raíz del repositorio.
 2. Espera a que **Actions → pages build and deployment** termine con una marca verde.
-3. Abre el enlace agregando `?v=100` al final, por ejemplo: `https://usuario.github.io/repositorio/?v=100`.
+3. Abre el enlace agregando `?v=110` al final, por ejemplo: `https://usuario.github.io/repositorio/?v=110`.
 4. Si estaba añadida a la pantalla de inicio, elimínala y vuelve a añadirla después de confirmar la versión nueva en Safari.
 
 ## Práctica de voz
 
-En **Habla**, Isabelle ve un número y dice solamente su nombre en español. La aplicación acepta la palabra correcta o una transcripción numérica equivalente de Safari; también admite que Safari separe *veintiuno* como *veinte y uno*. No acepta otro número.
+En **Habla**, Isabelle practica el número que escogió. En **Reto**, aparece un número sorpresa sin mostrar su nombre y ella debe decirlo en español. La aplicación acepta la palabra correcta o una transcripción numérica equivalente de Safari; también admite que Safari separe *veintiuno* como *veinte y uno*. No acepta otro número.
 
 Safari convierte la voz en texto. La aplicación comprueba ese texto, pero no es una evaluación profesional del acento. La escucha puede detenerse manualmente y termina automáticamente después de 15 segundos.
 
