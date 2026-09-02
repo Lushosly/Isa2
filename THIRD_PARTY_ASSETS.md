@@ -1,14 +1,14 @@
-# Third-party visual assets
+# Recursos visuales de terceros
 
-The following decorative SVGs are included unmodified from the OpenMoji project:
+Los siguientes SVG decorativos se incluyen sin modificar desde OpenMoji:
 
-| File | OpenMoji asset | Source |
+| Archivo | Recurso | Fuente |
 | --- | --- | --- |
 | `assets/openmoji/rainbow.svg` | Rainbow (U+1F308) | https://github.com/hfg-gmuend/openmoji/blob/master/color/svg/1F308.svg |
 | `assets/openmoji/butterfly.svg` | Butterfly (U+1F98B) | https://github.com/hfg-gmuend/openmoji/blob/master/color/svg/1F98B.svg |
 
-Attribution: **All emojis designed by OpenMoji – the open-source emoji and icon project. License: CC BY-SA 4.0.**
+Atribución: **All emojis designed by OpenMoji – the open-source emoji and icon project. License: CC BY-SA 4.0.**
 
-- Project: https://openmoji.org/
-- Source repository: https://github.com/hfg-gmuend/openmoji
-- License: https://creativecommons.org/licenses/by-sa/4.0/
+- Proyecto: https://openmoji.org/
+- Código fuente: https://github.com/hfg-gmuend/openmoji
+- Licencia: https://creativecommons.org/licenses/by-sa/4.0/
